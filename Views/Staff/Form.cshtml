@@ -1,0 +1,46 @@
+@model StaffFormViewModel
+@{
+    var isEdit = !string.IsNullOrEmpty(Model.Id);
+    ViewData["Title"] = isEdit ? "Edit Staff Account" : "Add Staff Account";
+}
+
+<div class="narrow">
+
+    <h1><i class="bi @(isEdit ? "bi-pencil-square" : "bi-person-plus")" aria-hidden="true"></i> @ViewData["Title"]</h1>
+
+    <form method="post" asp-action="@(isEdit ? "Edit" : "Create")" class="form-card">
+
+        <input asp-for="Id" type="hidden" />
+
+        <div asp-validation-summary="ModelOnly" class="validation"></div>
+
+        <div class="field">
+            <label asp-for="UserName">Username</label>
+            <input asp-for="UserName" />
+            <span asp-validation-for="UserName" class="validation"></span>
+        </div>
+
+        <div class="field">
+            <label asp-for="Role"></label>
+            <select asp-for="Role">
+                <option value="Admin">Admin</option>
+                <option value="Reception">Reception</option>
+                <option value="Manager">Manager</option>
+            </select>
+            <span asp-validation-for="Role" class="validation"></span>
+        </div>
+
+        <div class="field">
+            <label asp-for="Password">@(isEdit ? "New password (leave blank to keep unchanged)" : "Password")</label>
+            <input asp-for="Password" />
+            <span asp-validation-for="Password" class="validation"></span>
+        </div>
+
+        <div class="button-row">
+            <button class="btn" type="submit"><i class="bi bi-check2" aria-hidden="true"></i> Save</button>
+            <a class="btn btn-secondary" asp-action="Index"><i class="bi bi-arrow-left" aria-hidden="true"></i> Back to Staff Accounts</a>
+        </div>
+
+    </form>
+
+</div>

@@ -1,0 +1,35 @@
+@model IEnumerable<Borrower>
+@{
+    ViewData["Title"] = "Borrowers";
+}
+<div class="page-heading">
+    <div><h1>Borrowers</h1><p>Reception can manage borrower details.</p></div>
+    <a class="btn" asp-action="Create"><i class="bi bi-person-plus" aria-hidden="true"></i> Add Borrower</a>
+</div>
+<div class="table-wrap">
+<table>
+    <thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Address</th><th>Actions</th></tr></thead>
+    <tbody>
+    @foreach (var b in Model)
+    {
+        <tr>
+            <td>@b.FullName</td><td>@b.Email</td><td>@b.Phone</td><td>@b.Address</td>
+            <td class="actions">
+                <a class="action-btn" asp-action="Edit" asp-route-id="@b.Id"><i class="bi bi-pencil-square" aria-hidden="true"></i> Edit</a>
+                <a class="action-btn action-btn-danger" asp-action="Delete" asp-route-id="@b.Id"><i class="bi bi-trash3" aria-hidden="true"></i> Delete</a>
+            </td>
+        </tr>
+    }
+    @if (!Model.Any())
+    {
+        <tr><td colspan="5">
+            <div class="empty-state">
+                <i class="bi bi-people" aria-hidden="true"></i>
+                <strong>No borrowers yet</strong>
+                Add a borrower before lending out an item.
+            </div>
+        </td></tr>
+    }
+    </tbody>
+</table>
+</div>

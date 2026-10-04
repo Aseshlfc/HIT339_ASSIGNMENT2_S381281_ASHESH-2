@@ -1,0 +1,105 @@
+@model IEnumerable<Item>
+@{
+    ViewData["Title"] = "Search Library";
+
+    static string TypeIcon(string type) => type switch
+    {
+        "Book" => "bi-book",
+        "Music" => "bi-disc",
+        "Toy" => "bi-puzzle",
+        _ => "bi-bookmark"
+    };
+
+    static string StatusIcon(ItemStatus status) => status switch
+    {
+        ItemStatus.Available => "bi-check-circle-fill",
+        ItemStatus.Borrowed => "bi-clock-history",
+        ItemStatus.Damaged => "bi-exclamation-triangle-fill",
+        ItemStatus.Destroy => "bi-x-octagon-fill",
+        _ => "bi-question-circle"
+    };
+}
+
+<section class="hero">
+    <span class="hero-eyebrow"><i class="bi bi-journal-richtext" aria-hidden="true"></i> Open to everyone &middot; no login required</span>
+    <h1>Search the Library</h1>
+    <p>Browse our catalogue of books, music and toys. Search by name, description or library code, and filter by type or availability.</p>
+</section>
+
+<form method="get" class="search-panel">
+    <div class="field grow">
+        <label for="q">Search</label>
+        <div class="input-icon-wrap">
+            <i class="bi bi-search" aria-hidden="true"></i>
+            <input id="q" name="q" value="@ViewBag.Query" placeholder="Try &quot;Hobbit&quot;, &quot;Fantasy&quot; or a library code like B001" />
+        </div>
+    </div>
+    <div class="field">
+        <label for="type">Item type</label>
+        <select id="type" name="type" asp-items="ViewBag.Types">
+            <option value="">All types</option>
+        </select>
+    </div>
+    <label class="check-row">
+        @if (ViewBag.AvailableOnly == true)
+        {
+            <input type="checkbox" name="availableOnly" value="true" checked />
+        }
+        else
+        {
+            <input type="checkbox" name="availableOnly" value="true" />
+        }
+        Available only
+    </label>
+    <button class="btn" type="submit"><i class="bi bi-search" aria-hidden="true"></i> Search</button>
+    <a class="btn btn-secondary" asp-controller="Home" asp-action="Index"><i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i> Clear</a>
+</form>
+
+@if (Model.Any())
+{
+    <p class="help">Showing @Model.Count() item@(Model.Count() == 1 ? "" : "s").</p>
+}
+
+<div class="item-grid">
+@foreach (var item in Model)
+{
+    <article class="card">
+        <div class="card-top">
+            <span class="badge badge-@item.ItemType.ToLowerInvariant()"><i class="bi @TypeIcon(item.ItemType)" aria-hidden="true"></i> @item.ItemType</span>
+            <span class="status status-@item.Status.ToString().ToLowerInvariant()"><i class="bi @StatusIcon(item.Status)" aria-hidden="true"></i> @item.Status</span>
+        </div>
+        <h2>@item.Name</h2>
+        <p>@item.Description</p>
+        <dl>
+            <dt>Library code</dt><dd>@item.LibraryCode</dd>
+            @if (item is Book book)
+            {
+                <dt>Author</dt><dd>@book.Author</dd>
+                <dt>Genre</dt><dd>@book.Genre</dd>
+                <dt>Year</dt><dd>@book.PublicationYear</dd>
+            }
+            else if (item is Music music)
+            {
+                <dt>Artist</dt><dd>@music.Artist</dd>
+                <dt>Genre</dt><dd>@music.Genre</dd>
+                <dt>Year</dt><dd>@music.ReleaseYear</dd>
+            }
+            else if (item is Toy toy)
+            {
+                <dt>Type</dt><dd>@toy.ToyType</dd>
+                <dt>Minimum age</dt><dd>@toy.MinimumAge+</dd>
+                <dt>Manufacturer</dt><dd>@toy.Manufacturer</dd>
+            }
+        </dl>
+    </article>
+}
+</div>
+
+@if (!Model.Any())
+{
+    <div class="empty-state">
+        <i class="bi bi-binoculars" aria-hidden="true"></i>
+        <strong>No matching items found</strong>
+        Try a different title, code, or clear your filters to see the full catalogue.
+    </div>
+}

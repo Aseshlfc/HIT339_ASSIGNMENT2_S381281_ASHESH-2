@@ -1,0 +1,55 @@
+@model Borrower
+
+@{
+    var isEdit = Model.Id > 0;
+    ViewData["Title"] = isEdit ? "Edit Borrower" : "Add Borrower";
+}
+
+<div class="narrow">
+
+    <h1><i class="bi @(isEdit ? "bi-pencil-square" : "bi-person-plus")" aria-hidden="true"></i> @ViewData["Title"]</h1>
+
+    <form method="post"
+          asp-action="@(isEdit ? "Edit" : "Create")"
+          class="form-card">
+
+        <input asp-for="Id" type="hidden" />
+
+        <div asp-validation-summary="ModelOnly" class="validation"></div>
+
+        <div class="field">
+            <label asp-for="FullName"></label>
+            <input asp-for="FullName" />
+            <span asp-validation-for="FullName" class="validation"></span>
+        </div>
+
+        <div class="field">
+            <label asp-for="Email"></label>
+            <input asp-for="Email" />
+            <span asp-validation-for="Email" class="validation"></span>
+        </div>
+
+        <div class="field">
+            <label asp-for="Phone"></label>
+            <input asp-for="Phone" />
+            <span asp-validation-for="Phone" class="validation"></span>
+        </div>
+
+        <div class="field">
+            <label asp-for="Address"></label>
+            <textarea asp-for="Address" rows="3"></textarea>
+            <span asp-validation-for="Address" class="validation"></span>
+        </div>
+
+        <div class="button-row">
+            <button class="btn" type="submit"><i class="bi bi-check2" aria-hidden="true"></i> Save</button>
+
+            <a class="btn btn-secondary"
+               asp-action="Index">
+                <i class="bi bi-arrow-left" aria-hidden="true"></i> Back to Borrowers
+            </a>
+        </div>
+
+    </form>
+
+</div>

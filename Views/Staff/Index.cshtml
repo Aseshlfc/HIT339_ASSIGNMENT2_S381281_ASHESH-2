@@ -1,0 +1,55 @@
+@model IEnumerable<StaffListItemViewModel>
+@{
+    ViewData["Title"] = "Staff Accounts";
+}
+<div class="page-heading">
+    <div>
+        <h1>Staff Accounts</h1>
+        <p>Admin can create, edit, disable and delete staff accounts.</p>
+    </div>
+    <a class="btn" asp-action="Create"><i class="bi bi-person-plus" aria-hidden="true"></i> Add Staff Account</a>
+</div>
+
+<div class="table-wrap">
+<table>
+    <thead><tr><th>Username</th><th>Role</th><th>Status</th><th>Actions</th></tr></thead>
+    <tbody>
+    @foreach (var s in Model)
+    {
+        <tr>
+            <td><i class="bi bi-person-circle" aria-hidden="true"></i> @s.UserName</td>
+            <td><span class="badge"><i class="bi bi-shield-lock" aria-hidden="true"></i> @s.Role</span></td>
+            <td>
+                @if (s.IsLockedOut)
+                {
+                    <span class="status status-damaged"><i class="bi bi-slash-circle" aria-hidden="true"></i> Disabled</span>
+                }
+                else
+                {
+                    <span class="status status-available"><i class="bi bi-check-circle-fill" aria-hidden="true"></i> Active</span>
+                }
+            </td>
+            <td class="actions">
+                <a class="action-btn" asp-action="Edit" asp-route-id="@s.Id"><i class="bi bi-pencil-square" aria-hidden="true"></i> Edit</a>
+                <form asp-action="ToggleLock" asp-route-id="@s.Id" method="post" class="inline-form">
+                    <button type="submit" class="action-btn action-btn-muted">
+                        <i class="bi @(s.IsLockedOut ? "bi-unlock" : "bi-lock")" aria-hidden="true"></i> @(s.IsLockedOut ? "Enable" : "Disable")
+                    </button>
+                </form>
+                <a class="action-btn action-btn-danger" asp-action="Delete" asp-route-id="@s.Id"><i class="bi bi-trash3" aria-hidden="true"></i> Delete</a>
+            </td>
+        </tr>
+    }
+    @if (!Model.Any())
+    {
+        <tr><td colspan="4">
+            <div class="empty-state">
+                <i class="bi bi-shield-lock" aria-hidden="true"></i>
+                <strong>No staff accounts yet</strong>
+                Add a staff account to get started.
+            </div>
+        </td></tr>
+    }
+    </tbody>
+</table>
+</div>

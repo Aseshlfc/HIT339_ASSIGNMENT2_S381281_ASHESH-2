@@ -1,0 +1,55 @@
+@model IEnumerable<Item>
+@{
+    ViewData["Title"] = "Manage Items";
+
+    static string TypeIcon(string type) => type switch
+    {
+        "Book" => "bi-book",
+        "Music" => "bi-disc",
+        "Toy" => "bi-puzzle",
+        _ => "bi-bookmark"
+    };
+}
+<div class="page-heading">
+    <div>
+        <h1>Manage Items</h1>
+        <p>Admin can create, read, update and delete books, music and toys.</p>
+    </div>
+    <a class="btn" asp-action="Create"><i class="bi bi-plus-lg" aria-hidden="true"></i> Add Item</a>
+</div>
+
+<div class="table-wrap">
+<table>
+    <thead><tr><th>Code</th><th>Type</th><th>Name</th><th>Status</th><th>Details</th><th>Actions</th></tr></thead>
+    <tbody>
+    @foreach (var item in Model)
+    {
+        <tr>
+            <td>@item.LibraryCode</td>
+            <td><span class="badge badge-@item.ItemType.ToLowerInvariant()"><i class="bi @TypeIcon(item.ItemType)" aria-hidden="true"></i> @item.ItemType</span></td>
+            <td>@item.Name</td>
+            <td><span class="status status-@item.Status.ToString().ToLowerInvariant()">@item.Status</span></td>
+            <td>
+                @if (item is Book b) { <span>@b.Author &middot; @b.Genre</span> }
+                else if (item is Music m) { <span>@m.Artist &middot; @m.ReleaseYear</span> }
+                else if (item is Toy t) { <span>@t.ToyType &middot; Age @t.MinimumAge+</span> }
+            </td>
+            <td class="actions">
+                <a class="action-btn" asp-action="Edit" asp-route-id="@item.Id"><i class="bi bi-pencil-square" aria-hidden="true"></i> Edit</a>
+                <a class="action-btn action-btn-danger" asp-action="Delete" asp-route-id="@item.Id"><i class="bi bi-trash3" aria-hidden="true"></i> Delete</a>
+            </td>
+        </tr>
+    }
+    @if (!Model.Any())
+    {
+        <tr><td colspan="6">
+            <div class="empty-state">
+                <i class="bi bi-box-seam" aria-hidden="true"></i>
+                <strong>No items yet</strong>
+                Add your first book, music item or toy to get started.
+            </div>
+        </td></tr>
+    }
+    </tbody>
+</table>
+</div>

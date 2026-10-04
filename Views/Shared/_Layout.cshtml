@@ -1,0 +1,88 @@
+@{
+    var currentController = ViewContext.RouteData.Values["controller"]?.ToString();
+    string NavClass(string controllerName) => currentController == controllerName ? "active" : "";
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - Simple Library</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.11.3/font/bootstrap-icons.min.css" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+</head>
+<body>
+<header class="topbar">
+    <div class="container nav-wrap">
+        <a class="brand" asp-controller="Home" asp-action="Index">
+            <i class="bi bi-journal-bookmark-fill" aria-hidden="true"></i>
+            Simple Library
+        </a>
+        <nav>
+            <a class="@NavClass("Home")" asp-controller="Home" asp-action="Index">Public Search</a>
+            @if (User.IsInRole("Admin"))
+            {
+                <a class="@NavClass("Items")" asp-controller="Items" asp-action="Index">Items</a>
+                <a class="@NavClass("Staff")" asp-controller="Staff" asp-action="Index">Staff</a>
+            }
+            @if (User.IsInRole("Reception"))
+            {
+                <a class="@NavClass("Loans")" asp-controller="Loans" asp-action="Index">Loans</a>
+                <a class="@NavClass("Borrowers")" asp-controller="Borrowers" asp-action="Index">Borrowers</a>
+            }
+            @if (User.IsInRole("Manager"))
+            {
+                <a class="@NavClass("Manager")" asp-controller="Manager" asp-action="Index">Statistics</a>
+            }
+        </nav>
+        <div class="auth-links">
+            @if (User.Identity?.IsAuthenticated == true)
+            {
+                <span class="user-chip">
+                    <i class="bi bi-person-circle" aria-hidden="true"></i>
+                    @User.Identity.Name
+                    <span class="role-tag">@User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value</span>
+                </span>
+                <form asp-controller="Account" asp-action="Logout" method="post" class="inline-form">
+                    <button class="logout-btn" type="submit">
+                        <i class="bi bi-box-arrow-right" aria-hidden="true"></i> Logout
+                    </button>
+                </form>
+            }
+            else
+            {
+                <a asp-controller="Account" asp-action="Login">
+                    <i class="bi bi-person-badge" aria-hidden="true"></i> Staff Login
+                </a>
+            }
+        </div>
+    </div>
+</header>
+
+<main class="container main-content">
+    @if (TempData["Error"] != null)
+    {
+        <div class="alert alert-error"><i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i> @TempData["Error"]</div>
+    }
+    @RenderBody()
+</main>
+
+<footer class="footer">
+    <div class="container footer-inner">
+        <span><strong>Simple Library</strong> &middot; Library Management System</span>
+        <span class="footer-tagline">ASP.NET Core MVC &middot; Entity Framework Core &middot; university coursework project</span>
+    </div>
+</footer>
+<script>
+    function updateItemFields() {
+        const select = document.getElementById('ItemType');
+        if (!select) return;
+        document.querySelectorAll('[data-item-fields]').forEach(x => x.style.display = 'none');
+        const target = document.querySelector(`[data-item-fields="${select.value}"]`);
+        if (target) target.style.display = 'grid';
+    }
+    document.addEventListener('DOMContentLoaded', updateItemFields);
+</script>
+@await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

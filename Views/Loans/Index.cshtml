@@ -1,0 +1,73 @@
+@model IEnumerable<Loan>
+@{
+    ViewData["Title"] = "Loans";
+    var today = DateTime.Now.Date;
+}
+<div class="page-heading">
+    <div><h1>Loans</h1><p>Borrow, return and manage late fines.</p></div>
+    <a class="btn" asp-action="Borrow"><i class="bi bi-journal-plus" aria-hidden="true"></i> Borrow Item</a>
+</div>
+<div class="table-wrap">
+<table>
+    <thead><tr><th>Item</th><th>Borrower</th><th>Borrowed</th><th>Due</th><th>Returned</th><th>Fine</th><th>Actions</th></tr></thead>
+    <tbody>
+    @foreach (var l in Model)
+    {
+        var overdue = !l.ReturnedAt.HasValue && l.DueDate.Date < today;
+        <tr class="@(overdue ? "overdue-row" : "")">
+            <td>@l.Item.Name <small>(@l.Item.LibraryCode)</small></td>
+            <td>@l.Borrower.FullName</td>
+            <td>@l.BorrowedAt.ToString("dd MMM yyyy")</td>
+            <td>
+                @l.DueDate.ToString("dd MMM yyyy")
+                @if (overdue)
+                {
+                    <span class="overdue-tag"><i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i> Overdue</span>
+                }
+            </td>
+            <td>@(l.ReturnedAt?.ToString("dd MMM yyyy") ?? "—")</td>
+            <td>
+                @if (l.FineAmount > 0)
+                {
+                    if (l.FinePaid)
+                    {
+                        <span class="status status-available"><i class="bi bi-check-circle-fill" aria-hidden="true"></i> $@l.FineAmount.ToString("0.00") paid</span>
+                    }
+                    else
+                    {
+                        <span class="status status-damaged"><i class="bi bi-currency-dollar" aria-hidden="true"></i> $@l.FineAmount.ToString("0.00") owing</span>
+                    }
+                }
+                else { <span class="help">—</span> }
+            </td>
+            <td class="actions">
+                @if (!l.ReturnedAt.HasValue)
+                {
+                    <a class="action-btn" asp-action="Return" asp-route-id="@l.Id"><i class="bi bi-box-arrow-in-left" aria-hidden="true"></i> Return</a>
+                }
+                else if (l.FineAmount > 0 && !l.FinePaid)
+                {
+                    <form asp-action="MarkFinePaid" asp-route-id="@l.Id" method="post" class="inline-form">
+                        <button type="submit" class="action-btn action-btn-muted"><i class="bi bi-cash-coin" aria-hidden="true"></i> Mark fine paid</button>
+                    </form>
+                }
+                else
+                {
+                    <span class="help">—</span>
+                }
+            </td>
+        </tr>
+    }
+    @if (!Model.Any())
+    {
+        <tr><td colspan="7">
+            <div class="empty-state">
+                <i class="bi bi-journal-x" aria-hidden="true"></i>
+                <strong>No loans recorded yet</strong>
+                Borrow an item to see it appear here.
+            </div>
+        </td></tr>
+    }
+    </tbody>
+</table>
+</div>

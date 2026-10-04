@@ -1,0 +1,17 @@
+@model Borrower
+@{
+    ViewData["Title"] = "Delete Borrower";
+}
+<div class="narrow">
+<h1><i class="bi bi-trash3" aria-hidden="true"></i> Delete Borrower</h1>
+<div class="form-card">
+    <p>Are you sure you want to delete <strong>@Model.FullName</strong>?</p>
+    <p class="help"><i class="bi bi-info-circle" aria-hidden="true"></i> Borrowers with loan history cannot be deleted.</p>
+    <form method="post">
+        <div class="button-row">
+            <button class="btn btn-danger" type="submit"><i class="bi bi-trash3" aria-hidden="true"></i> Delete</button>
+            <a class="btn btn-secondary" asp-action="Index"><i class="bi bi-arrow-left" aria-hidden="true"></i> Back to Borrowers</a>
+        </div>
+    </form>
+</div>
+</div>

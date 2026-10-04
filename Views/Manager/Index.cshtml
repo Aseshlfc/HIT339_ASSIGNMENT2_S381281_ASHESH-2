@@ -1,0 +1,85 @@
+@model ManagerDashboardViewModel
+@{
+    ViewData["Title"] = "Manager Statistics";
+
+    static string StatusIconFor(string statusName) => statusName switch
+    {
+        "Available" => "bi-check-circle-fill",
+        "Borrowed" => "bi-clock-history",
+        "Damaged" => "bi-exclamation-triangle-fill",
+        "Destroy" => "bi-x-octagon-fill",
+        _ => "bi-question-circle"
+    };
+
+    static string TypeIconFor(string typeName) => typeName switch
+    {
+        "Books" => "bi-book",
+        "Music" => "bi-disc",
+        "Toys" => "bi-puzzle",
+        _ => "bi-bookmark"
+    };
+}
+<h1><i class="bi bi-graph-up" aria-hidden="true"></i> Manager Statistics</h1>
+<p class="help">A live snapshot of borrowing activity, item stock and fines across the library.</p>
+
+<div class="section-block">
+    <h2><i class="bi bi-journal-check" aria-hidden="true"></i> Borrowing statistics</h2>
+    <div class="stats-grid">
+        <div class="stat-card"><span><i class="bi bi-collection" aria-hidden="true"></i> Total loans</span><strong>@Model.TotalLoans</strong></div>
+        <div class="stat-card"><span><i class="bi bi-hourglass-split" aria-hidden="true"></i> Active loans</span><strong>@Model.ActiveLoans</strong></div>
+        <div class="stat-card"><span><i class="bi bi-check2-circle" aria-hidden="true"></i> Returned loans</span><strong>@Model.ReturnedLoans</strong></div>
+        <div class="stat-card @(Model.OverdueLoans > 0 ? "stat-warn" : "")"><span><i class="bi bi-exclamation-triangle" aria-hidden="true"></i> Overdue loans</span><strong>@Model.OverdueLoans</strong></div>
+    </div>
+</div>
+
+<div class="section-block">
+    <h2><i class="bi bi-box-seam" aria-hidden="true"></i> Item status statistics</h2>
+    <div class="stats-grid">
+    @foreach (var x in Model.StatusCounts)
+    {
+        <div class="stat-card"><span><i class="bi @StatusIconFor(x.Key)" aria-hidden="true"></i> @x.Key</span><strong>@x.Value</strong></div>
+    }
+    </div>
+
+    <h2 style="margin-top:26px;"><i class="bi bi-tags" aria-hidden="true"></i> Item type statistics</h2>
+    <div class="stats-grid">
+    @foreach (var x in Model.TypeCounts)
+    {
+        <div class="stat-card"><span><i class="bi @TypeIconFor(x.Key)" aria-hidden="true"></i> @x.Key</span><strong>@x.Value</strong></div>
+    }
+    </div>
+</div>
+
+<div class="section-block">
+    <h2><i class="bi bi-currency-dollar" aria-hidden="true"></i> Fine statistics</h2>
+    <div class="stats-grid">
+        <div class="stat-card"><span><i class="bi bi-cash-stack" aria-hidden="true"></i> Total assessed</span><strong>$@Model.TotalFines.ToString("0.00")</strong></div>
+        <div class="stat-card"><span><i class="bi bi-check2-circle" aria-hidden="true"></i> Paid</span><strong>$@Model.PaidFines.ToString("0.00")</strong></div>
+        <div class="stat-card @(Model.OutstandingFines > 0 ? "stat-warn" : "")"><span><i class="bi bi-exclamation-circle" aria-hidden="true"></i> Outstanding</span><strong>$@Model.OutstandingFines.ToString("0.00")</strong></div>
+    </div>
+</div>
+
+<div class="section-block">
+    <h2><i class="bi bi-star" aria-hidden="true"></i> Most borrowed items</h2>
+    <div class="table-wrap">
+    <table>
+        <thead><tr><th>Item</th><th>Library code</th><th>Times borrowed</th></tr></thead>
+        <tbody>
+        @foreach (var row in Model.PopularItems)
+        {
+            <tr><td>@row.Name</td><td>@row.LibraryCode</td><td>@row.BorrowCount</td></tr>
+        }
+        @if (!Model.PopularItems.Any())
+        {
+            <tr><td colspan="3">
+                <div class="empty-state">
+                    <i class="bi bi-star" aria-hidden="true"></i>
+                    <strong>No borrowing activity yet</strong>
+                    Popular items will appear here once loans start being recorded.
+                </div>
+            </td></tr>
+        }
+        </tbody>
+    </table>
+    </div>
+</div>

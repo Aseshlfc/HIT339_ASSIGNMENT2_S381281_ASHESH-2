@@ -1,0 +1,25 @@
+@model BorrowViewModel
+@{
+    ViewData["Title"] = "Borrow Item";
+}
+<div class="narrow">
+<h1><i class="bi bi-journal-plus" aria-hidden="true"></i> Borrow Item</h1>
+<p class="help"><i class="bi bi-info-circle" aria-hidden="true"></i> Loan period: @LibraryRules.LoanDays days. Late fine: $@LibraryRules.FinePerLateDay.ToString("0.00") per day.</p>
+<form method="post" class="form-card">
+    <div asp-validation-summary="ModelOnly" class="validation"></div>
+    <div class="field">
+        <label asp-for="LibraryCode"></label>
+        <div class="input-icon-wrap">
+            <i class="bi bi-upc-scan" aria-hidden="true"></i>
+            <input asp-for="LibraryCode" autofocus placeholder="e.g. B001" />
+        </div>
+        <span asp-validation-for="LibraryCode" class="validation"></span>
+    </div>
+    <div class="field"><label asp-for="BorrowerId"></label><select asp-for="BorrowerId" asp-items="ViewBag.Borrowers"><option value="">Choose borrower</option></select><span asp-validation-for="BorrowerId" class="validation"></span></div>
+    <p class="help">Need a new borrower? <a asp-controller="Borrowers" asp-action="Create">Add borrower first</a>.</p>
+    <div class="button-row">
+        <button class="btn" type="submit"><i class="bi bi-journal-check" aria-hidden="true"></i> Borrow</button>
+        <a class="btn btn-secondary" asp-action="Index"><i class="bi bi-arrow-left" aria-hidden="true"></i> Back to Loans</a>
+    </div>
+</form>
+</div>

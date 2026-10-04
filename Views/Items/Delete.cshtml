@@ -1,0 +1,17 @@
+@model Item
+@{
+    ViewData["Title"] = "Delete Item";
+}
+<div class="narrow">
+    <h1><i class="bi bi-trash3" aria-hidden="true"></i> Delete Item</h1>
+    <div class="form-card">
+        <p>Are you sure you want to delete <strong>@Model.Name</strong> (@Model.LibraryCode)?</p>
+        <p class="help"><i class="bi bi-info-circle" aria-hidden="true"></i> Items with loan history cannot be deleted; set their status to <strong>Destroy</strong> instead.</p>
+        <form method="post">
+            <div class="button-row">
+                <button class="btn btn-danger" type="submit"><i class="bi bi-trash3" aria-hidden="true"></i> Delete</button>
+                <a class="btn btn-secondary" asp-action="Index"><i class="bi bi-arrow-left" aria-hidden="true"></i> Back to Items</a>
+            </div>
+        </form>
+    </div>
+</div>

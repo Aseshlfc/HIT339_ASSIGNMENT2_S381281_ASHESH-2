@@ -1,0 +1,31 @@
+@model LoginViewModel
+@{
+    ViewData["Title"] = "Staff Login";
+}
+
+<div class="narrow">
+    <h1><i class="bi bi-person-badge" aria-hidden="true"></i> Staff Login</h1>
+    <form method="post" class="form-card">
+        <div asp-validation-summary="ModelOnly" class="validation"></div>
+        <div class="field">
+            <label asp-for="Username"></label>
+            <input asp-for="Username" autofocus />
+            <span asp-validation-for="Username" class="validation"></span>
+        </div>
+        <div class="field">
+            <label asp-for="Password"></label>
+            <input asp-for="Password" />
+            <span asp-validation-for="Password" class="validation"></span>
+        </div>
+        <button type="submit" class="btn"><i class="bi bi-box-arrow-in-right" aria-hidden="true"></i> Login</button>
+    </form>
+
+    <div class="demo-box">
+        <strong><i class="bi bi-info-circle" aria-hidden="true"></i> Demo accounts</strong>
+        <div class="credential-row"><i class="bi bi-shield-lock" aria-hidden="true"></i> Admin: <code>admin</code> / <code>Admin123!</code></div>
+        <div class="credential-row"><i class="bi bi-shield-lock" aria-hidden="true"></i> Reception: <code>reception</code> / <code>Reception123!</code></div>
+        <div class="credential-row"><i class="bi bi-shield-lock" aria-hidden="true"></i> Manager: <code>manager</code> / <code>Manager123!</code></div>
+    </div>
+
+    <p class="help" style="margin-top:14px;"><i class="bi bi-arrow-left" aria-hidden="true"></i> <a asp-controller="Home" asp-action="Index">Back to public portal</a></p>
+</div>

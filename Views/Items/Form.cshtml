@@ -1,0 +1,172 @@
+@model ItemFormViewModel
+
+@{
+    var isEdit = Model.Id.HasValue;
+    ViewData["Title"] = isEdit ? "Edit Item" : "Add Item";
+}
+
+<h1><i class="bi @(isEdit ? "bi-pencil-square" : "bi-plus-circle")" aria-hidden="true"></i> @ViewData["Title"]</h1>
+
+<form method="post"
+      asp-action="@(isEdit ? "Edit" : "Create")"
+      class="form-card wide-form">
+
+    <input asp-for="Id" type="hidden" />
+
+    <div asp-validation-summary="ModelOnly" class="validation"></div>
+
+    <div class="form-grid">
+
+        <div class="field">
+            <label asp-for="ItemType">Item type</label>
+
+            @if (isEdit)
+            {
+                <select asp-for="ItemType" id="ItemType" disabled>
+                    <option value="Book">Book</option>
+                    <option value="Music">Music</option>
+                    <option value="Toy">Toy</option>
+                </select>
+
+                <input asp-for="ItemType" type="hidden" />
+            }
+            else
+            {
+                <select asp-for="ItemType"
+                        id="ItemType"
+                        onchange="updateItemFields()">
+                    <option value="Book">Book</option>
+                    <option value="Music">Music</option>
+                    <option value="Toy">Toy</option>
+                </select>
+            }
+
+            <span asp-validation-for="ItemType" class="validation"></span>
+        </div>
+
+        <div class="field">
+            <label asp-for="LibraryCode"></label>
+            <input asp-for="LibraryCode" />
+            <span asp-validation-for="LibraryCode" class="validation"></span>
+        </div>
+
+        <div class="field">
+            <label asp-for="Name"></label>
+            <input asp-for="Name" />
+            <span asp-validation-for="Name" class="validation"></span>
+        </div>
+
+        <div class="field">
+            <label asp-for="Status"></label>
+            <select asp-for="Status"
+                    asp-items="Html.GetEnumSelectList<ItemStatus>()">
+            </select>
+            <span asp-validation-for="Status" class="validation"></span>
+        </div>
+
+        <div class="field full">
+            <label asp-for="Description"></label>
+            <textarea asp-for="Description" rows="3"></textarea>
+            <span asp-validation-for="Description" class="validation"></span>
+        </div>
+
+    </div>
+
+    <!-- BOOK FIELDS -->
+    <div class="form-grid type-fields"
+         data-item-fields="Book">
+        <span class="type-fields-label">Book details</span>
+
+        <div class="field">
+            <label asp-for="Author"></label>
+            <input asp-for="Author" />
+            <span asp-validation-for="Author" class="validation"></span>
+        </div>
+
+        <div class="field">
+            <label asp-for="BookGenre">Genre</label>
+            <input asp-for="BookGenre" />
+            <span asp-validation-for="BookGenre" class="validation"></span>
+        </div>
+
+        <div class="field">
+            <label asp-for="PublicationYear">Publication year</label>
+            <input asp-for="PublicationYear"
+                   type="number"
+                   min="1000"
+                   max="2100" />
+            <span asp-validation-for="PublicationYear"
+                  class="validation"></span>
+        </div>
+
+    </div>
+
+    <!-- MUSIC FIELDS -->
+    <div class="form-grid type-fields"
+         data-item-fields="Music">
+        <span class="type-fields-label">Music details</span>
+
+        <div class="field">
+            <label asp-for="Artist"></label>
+            <input asp-for="Artist" />
+            <span asp-validation-for="Artist" class="validation"></span>
+        </div>
+
+        <div class="field">
+            <label asp-for="MusicGenre">Genre</label>
+            <input asp-for="MusicGenre" />
+            <span asp-validation-for="MusicGenre" class="validation"></span>
+        </div>
+
+        <div class="field">
+            <label asp-for="ReleaseYear">Release year</label>
+            <input asp-for="ReleaseYear"
+                   type="number"
+                   min="1000"
+                   max="2100" />
+            <span asp-validation-for="ReleaseYear"
+                  class="validation"></span>
+        </div>
+
+    </div>
+
+    <!-- TOY FIELDS -->
+    <div class="form-grid type-fields"
+         data-item-fields="Toy">
+        <span class="type-fields-label">Toy details</span>
+
+        <div class="field">
+            <label asp-for="ToyType">Toy type</label>
+            <input asp-for="ToyType" />
+            <span asp-validation-for="ToyType" class="validation"></span>
+        </div>
+
+        <div class="field">
+            <label asp-for="MinimumAge">Minimum age</label>
+            <input asp-for="MinimumAge"
+                   type="number"
+                   min="0"
+                   max="18" />
+            <span asp-validation-for="MinimumAge"
+                  class="validation"></span>
+        </div>
+
+        <div class="field">
+            <label asp-for="Manufacturer"></label>
+            <input asp-for="Manufacturer" />
+            <span asp-validation-for="Manufacturer"
+                  class="validation"></span>
+        </div>
+
+    </div>
+
+    <div class="button-row">
+        <button class="btn" type="submit"><i class="bi bi-check2" aria-hidden="true"></i> Save</button>
+
+        <a class="btn btn-secondary"
+           asp-action="Index">
+            <i class="bi bi-arrow-left" aria-hidden="true"></i> Back to Items
+        </a>
+    </div>
+
+</form>
