@@ -1,0 +1,96 @@
+@model TransferIndexViewModel
+@{
+    ViewData["Title"] = "Transfers";
+    var branches = (List<Branch>)ViewBag.Branches;
+}
+<div class="page-heading">
+    <div>
+        <h1>Inter-Branch Transfers</h1>
+        <p>
+            Move items between branches: request, dispatch from the source branch, then receive at the destination.
+            @if (Model.StaffBranch != null)
+            {
+                <span>You are working at <strong>@Model.StaffBranch.Name</strong>.</span>
+            }
+            else if (Model.IsAdmin)
+            {
+                <span>As Admin you can act for any branch.</span>
+            }
+        </p>
+    </div>
+    @if (Model.CanCreate)
+    {
+        <a class="btn" asp-action="Create"><i class="bi bi-truck" aria-hidden="true"></i> Request Transfer</a>
+    }
+</div>
+
+@if (!Model.CanCreate)
+{
+    <div class="alert alert-error"><i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i> Your account is not assigned to a branch, so you can view transfers but not manage them. Ask an Admin to assign your branch.</div>
+}
+
+<form method="get" class="search-panel">
+    <div class="pill-row grow">
+        <a class="pill @(Model.View == "open" ? "active" : "")" asp-action="Index" asp-route-view="open" asp-route-branchId="@Model.BranchId">Open</a>
+        <a class="pill @(Model.View == "history" ? "active" : "")" asp-action="Index" asp-route-view="history" asp-route-branchId="@Model.BranchId">History</a>
+        <a class="pill @(Model.View == "all" ? "active" : "")" asp-action="Index" asp-route-view="all" asp-route-branchId="@Model.BranchId">All</a>
+    </div>
+    <input type="hidden" name="view" value="@Model.View" />
+    <div class="field">
+        <label for="branchId">Branch</label>
+        <select id="branchId" name="branchId">
+            <option value="">All branches</option>
+            @foreach (var b in branches)
+            {
+                <option value="@b.Id" selected="@(Model.BranchId == b.Id)">@b.Name</option>
+            }
+        </select>
+    </div>
+    <button class="btn" type="submit"><i class="bi bi-funnel" aria-hidden="true"></i> Filter</button>
+</form>
+
+<div class="table-wrap">
+<table>
+    <thead><tr><th>#</th><th>Item</th><th>Type</th><th>Route</th><th>Status</th><th>Requested</th><th>Closed</th><th>Actions</th></tr></thead>
+    <tbody>
+    @foreach (var row in Model.Rows)
+    {
+        var t = row.Transfer;
+        <tr>
+            <td>@t.Id</td>
+            <td>@t.Item.Name <small>(@t.Item.LibraryCode)</small></td>
+            <td><span class="kind-tag">@t.Kind.Label()</span></td>
+            <td><span class="route">@t.FromBranch.Name <i class="bi bi-arrow-right" aria-hidden="true"></i> @t.ToBranch.Name</span></td>
+            <td><span class="status transfer-@t.Status.ToString().ToLowerInvariant()">@t.Status.Label()</span></td>
+            <td>@t.RequestedAt.ToString("dd MMM yyyy") <small>by @t.RequestedBy</small></td>
+            <td>@(t.ClosedAt?.ToString("dd MMM yyyy") ?? "—")</td>
+            <td><div class="actions">
+                <a class="action-btn" asp-action="Details" asp-route-id="@t.Id"><i class="bi bi-eye" aria-hidden="true"></i> View</a>
+                @if (row.CanDispatch)
+                {
+                    <form asp-action="Dispatch" asp-route-id="@t.Id" method="post" class="inline-form">
+                        <button type="submit" class="action-btn action-btn-muted"><i class="bi bi-send" aria-hidden="true"></i> Dispatch</button>
+                    </form>
+                }
+                @if (row.CanReceive)
+                {
+                    <form asp-action="Receive" asp-route-id="@t.Id" method="post" class="inline-form">
+                        <button type="submit" class="action-btn action-btn-muted"><i class="bi bi-box-arrow-in-down" aria-hidden="true"></i> Receive</button>
+                    </form>
+                }
+            </div></td>
+        </tr>
+    }
+    @if (!Model.Rows.Any())
+    {
+        <tr><td colspan="8">
+            <div class="empty-state">
+                <i class="bi bi-truck" aria-hidden="true"></i>
+                <strong>@(Model.View == "open" ? "No open transfers" : "No transfers found")</strong>
+                @(Model.View == "open" ? "Request a transfer to move an item to another branch." : "Nothing matches the selected view and branch.")
+            </div>
+        </td></tr>
+    }
+    </tbody>
+</table>
+</div>

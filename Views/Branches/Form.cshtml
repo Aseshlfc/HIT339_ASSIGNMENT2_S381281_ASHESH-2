@@ -1,0 +1,43 @@
+@model Branch
+@{
+    var isEdit = Model.Id > 0;
+    ViewData["Title"] = isEdit ? "Edit Branch" : "Add Branch";
+}
+<div class="narrow">
+    <h1><i class="bi @(isEdit ? "bi-pencil-square" : "bi-buildings")" aria-hidden="true"></i> @ViewData["Title"]</h1>
+
+    <form method="post" asp-action="@(isEdit ? "Edit" : "Create")" class="form-card">
+        <input asp-for="Id" type="hidden" />
+        <div asp-validation-summary="ModelOnly" class="validation"></div>
+
+        <div class="field">
+            <label asp-for="Code"></label>
+            <input asp-for="Code" maxlength="10" placeholder="e.g. NTH" />
+            <span class="field-hint">A short unique code, shown on lists and reports. Saved in capitals.</span>
+            <span asp-validation-for="Code" class="validation"></span>
+        </div>
+
+        <div class="field">
+            <label asp-for="Name"></label>
+            <input asp-for="Name" placeholder="e.g. Northside Branch" />
+            <span asp-validation-for="Name" class="validation"></span>
+        </div>
+
+        <div class="field">
+            <label asp-for="Address"></label>
+            <textarea asp-for="Address" rows="3"></textarea>
+            <span asp-validation-for="Address" class="validation"></span>
+        </div>
+
+        <div class="field">
+            <label asp-for="Phone"></label>
+            <input asp-for="Phone" />
+            <span asp-validation-for="Phone" class="validation"></span>
+        </div>
+
+        <div class="button-row">
+            <button class="btn" type="submit"><i class="bi bi-check2" aria-hidden="true"></i> Save</button>
+            <a class="btn btn-secondary" asp-action="Index"><i class="bi bi-arrow-left" aria-hidden="true"></i> Back to Branches</a>
+        </div>
+    </form>
+</div>

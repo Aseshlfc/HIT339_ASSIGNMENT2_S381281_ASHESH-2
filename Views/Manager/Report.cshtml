@@ -1,0 +1,162 @@
+@using LibraryManagementSystem.Services
+@using LibraryManagementSystem.Controllers
+@model ReportPageViewModel
+@{
+    var doc = Model.Document;
+    ViewData["Title"] = doc.Title;
+    var f = Model.Filter;
+    var from = f.From?.ToString("yyyy-MM-dd");
+    var to = f.To?.ToString("yyyy-MM-dd");
+    var action = Model.ReportKey switch
+    {
+        ManagerController.Fines => "FineAudit",
+        ManagerController.Inventory => "InventoryHealth",
+        _ => "BorrowingReport"
+    };
+}
+<div class="page-heading">
+    <div>
+        <h1><i class="bi bi-file-earmark-bar-graph" aria-hidden="true"></i> @doc.Title</h1>
+        <p>@doc.Description</p>
+    </div>
+    <a class="btn btn-secondary" asp-action="Index"><i class="bi bi-arrow-left" aria-hidden="true"></i> Dashboard</a>
+</div>
+
+<div class="pill-row">
+    <a class="pill @(Model.ReportKey == ManagerController.Borrowing ? "active" : "")" asp-action="BorrowingReport"><i class="bi bi-journal-check" aria-hidden="true"></i> Borrowing statistics</a>
+    <a class="pill @(Model.ReportKey == ManagerController.Fines ? "active" : "")" asp-action="FineAudit"><i class="bi bi-currency-dollar" aria-hidden="true"></i> Fine revenue audit</a>
+    <a class="pill @(Model.ReportKey == ManagerController.Inventory ? "active" : "")" asp-action="InventoryHealth"><i class="bi bi-box-seam" aria-hidden="true"></i> Inventory health</a>
+</div>
+
+<form method="get" asp-action="@action" class="search-panel">
+    @if (Model.ShowDateRange)
+    {
+        <div class="field">
+            <label for="From">@Model.DateLabel from</label>
+            <input type="date" id="From" name="From" value="@from" />
+        </div>
+        <div class="field">
+            <label for="To">@Model.DateLabel to</label>
+            <input type="date" id="To" name="To" value="@to" />
+        </div>
+    }
+    <div class="field">
+        <label for="BranchId">Branch</label>
+        <select id="BranchId" name="BranchId">
+            <option value="">All branches</option>
+            @foreach (var b in Model.Branches)
+            {
+                <option value="@b.Id" selected="@(f.BranchId == b.Id)">@b.Name</option>
+            }
+        </select>
+    </div>
+    <div class="field">
+        <label for="ItemType">Item category</label>
+        <select id="ItemType" name="ItemType">
+            <option value="">All categories</option>
+            @foreach (var type in new[] { "Book", "Music", "Toy" })
+            {
+                <option value="@type" selected="@(f.ItemType == type)">@type</option>
+            }
+        </select>
+    </div>
+    @if (Model.ShowFineStatus)
+    {
+        <div class="field">
+            <label for="FineStatus">Fine status</label>
+            <select id="FineStatus" name="FineStatus">
+                <option value="">Paid and outstanding</option>
+                <option value="Paid" selected="@(f.FineStatus == "Paid")">Paid</option>
+                <option value="Outstanding" selected="@(f.FineStatus == "Outstanding")">Outstanding</option>
+            </select>
+        </div>
+    }
+    <button class="btn" type="submit"><i class="bi bi-funnel" aria-hidden="true"></i> Apply filters</button>
+    <a class="btn btn-secondary" asp-action="@action"><i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i> Clear</a>
+</form>
+
+<div class="export-row">
+    <span class="help">
+        <i class="bi bi-funnel" aria-hidden="true"></i>
+        @string.Join(" · ", doc.Filters.Select(x => $"{x.Key}: {x.Value}"))
+    </span>
+    <span class="export-buttons">
+        <a class="btn btn-sm" asp-action="Export" asp-route-report="@Model.ReportKey" asp-route-format="csv"
+           asp-route-From="@from" asp-route-To="@to" asp-route-BranchId="@f.BranchId" asp-route-ItemType="@f.ItemType" asp-route-FineStatus="@f.FineStatus">
+            <i class="bi bi-filetype-csv" aria-hidden="true"></i> Download CSV
+        </a>
+        <a class="btn btn-sm" asp-action="Export" asp-route-report="@Model.ReportKey" asp-route-format="pdf"
+           asp-route-From="@from" asp-route-To="@to" asp-route-BranchId="@f.BranchId" asp-route-ItemType="@f.ItemType" asp-route-FineStatus="@f.FineStatus">
+            <i class="bi bi-filetype-pdf" aria-hidden="true"></i> Download PDF
+        </a>
+    </span>
+</div>
+
+<div class="section-block">
+    <h2><i class="bi bi-speedometer2" aria-hidden="true"></i> Summary</h2>
+    <div class="stats-grid">
+        @foreach (var metric in doc.Summary)
+        {
+            <div class="stat-card @(metric.Warn ? "stat-warn" : "")"><span>@metric.Label</span><strong>@ReportFormat.Display(metric.Value, metric.Kind)</strong></div>
+        }
+    </div>
+</div>
+
+@foreach (var table in doc.Tables)
+{
+    <div class="section-block">
+        <h2><i class="bi bi-table" aria-hidden="true"></i> @table.Title</h2>
+        @if (!string.IsNullOrEmpty(table.Description))
+        {
+            <p class="help">@table.Description</p>
+        }
+        @if (table.Rows.Any())
+        {
+            <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        @foreach (var column in table.Columns)
+                        {
+                            <th class="@(column.Kind is ReportValueKind.Text or ReportValueKind.Date ? "" : "num")">@column.Header</th>
+                        }
+                    </tr>
+                </thead>
+                <tbody>
+                @foreach (var row in table.Rows)
+                {
+                    <tr>
+                        @for (var i = 0; i < table.Columns.Count; i++)
+                        {
+                            var kind = table.Columns[i].Kind;
+                            <td class="@(kind is ReportValueKind.Text or ReportValueKind.Date ? "" : "num")">@ReportFormat.Display(row[i], kind)</td>
+                        }
+                    </tr>
+                }
+                </tbody>
+            </table>
+            </div>
+        }
+        else
+        {
+            <div class="empty-state">
+                <i class="bi bi-inbox" aria-hidden="true"></i>
+                <strong>Nothing to show</strong>
+                @table.EmptyMessage
+            </div>
+        }
+    </div>
+}
+
+@if (doc.Notes.Any())
+{
+    <div class="section-block">
+        <h2><i class="bi bi-info-circle" aria-hidden="true"></i> Notes</h2>
+        <ul class="notes">
+            @foreach (var note in doc.Notes)
+            {
+                <li>@note</li>
+            }
+        </ul>
+    </div>
+}

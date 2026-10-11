@@ -1,0 +1,17 @@
+@model Branch
+@{
+    ViewData["Title"] = "Delete Branch";
+}
+<div class="narrow">
+    <h1><i class="bi bi-trash3" aria-hidden="true"></i> Delete Branch</h1>
+    <div class="form-card">
+        <p>Are you sure you want to delete <strong>@Model.Name</strong> (@Model.Code)?</p>
+        <p class="help"><i class="bi bi-info-circle" aria-hidden="true"></i> A branch that holds items, has staff assigned, or appears in transfer or loan history cannot be deleted. Deactivate it instead.</p>
+        <form method="post">
+            <div class="button-row">
+                <button class="btn btn-danger" type="submit"><i class="bi bi-trash3" aria-hidden="true"></i> Delete</button>
+                <a class="btn btn-secondary" asp-action="Index"><i class="bi bi-arrow-left" aria-hidden="true"></i> Back to Branches</a>
+            </div>
+        </form>
+    </div>
+</div>

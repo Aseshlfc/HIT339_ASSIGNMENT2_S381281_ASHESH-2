@@ -16,8 +16,12 @@
         ItemStatus.Borrowed => "bi-clock-history",
         ItemStatus.Damaged => "bi-exclamation-triangle-fill",
         ItemStatus.Destroy => "bi-x-octagon-fill",
+        ItemStatus.InTransit => "bi-truck",
         _ => "bi-question-circle"
     };
+
+    var branches = (List<Branch>)ViewBag.Branches;
+    var branchNames = (Dictionary<int, string>)ViewBag.BranchNames;
 }
 
 <section class="hero">
@@ -38,6 +42,16 @@
         <label for="type">Item type</label>
         <select id="type" name="type" asp-items="ViewBag.Types">
             <option value="">All types</option>
+        </select>
+    </div>
+    <div class="field">
+        <label for="branchId">Branch</label>
+        <select id="branchId" name="branchId">
+            <option value="">All branches</option>
+            @foreach (var b in branches)
+            {
+                <option value="@b.Id" selected="@(ViewBag.BranchId == b.Id)">@b.Name</option>
+            }
         </select>
     </div>
     <label class="check-row">
@@ -66,12 +80,13 @@
     <article class="card">
         <div class="card-top">
             <span class="badge badge-@item.ItemType.ToLowerInvariant()"><i class="bi @TypeIcon(item.ItemType)" aria-hidden="true"></i> @item.ItemType</span>
-            <span class="status status-@item.Status.ToString().ToLowerInvariant()"><i class="bi @StatusIcon(item.Status)" aria-hidden="true"></i> @item.Status</span>
+            <span class="status status-@item.Status.ToString().ToLowerInvariant()"><i class="bi @StatusIcon(item.Status)" aria-hidden="true"></i> @item.Status.Label()</span>
         </div>
         <h2>@item.Name</h2>
         <p>@item.Description</p>
         <dl>
             <dt>Library code</dt><dd>@item.LibraryCode</dd>
+            <dt>Location</dt><dd><i class="bi bi-geo-alt-fill" aria-hidden="true"></i> @branchNames.GetValueOrDefault(item.BranchId, "Unknown branch")</dd>
             @if (item is Book book)
             {
                 <dt>Author</dt><dd>@book.Author</dd>

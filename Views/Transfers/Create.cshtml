@@ -1,0 +1,67 @@
+@model TransferCreateViewModel
+@{
+    ViewData["Title"] = "Request Transfer";
+    var items = (List<Item>)ViewBag.Items;
+    var branchNames = (Dictionary<int, string>)ViewBag.BranchNames;
+    var destinations = (List<Branch>)ViewBag.Destinations;
+    var staffBranch = ViewBag.StaffBranch as Branch;
+}
+<div class="narrow">
+<h1><i class="bi bi-truck" aria-hidden="true"></i> Request Transfer</h1>
+<p class="help">
+    <i class="bi bi-info-circle" aria-hidden="true"></i>
+    Only items that are Available and not already being transferred are listed. The source branch is the branch that currently holds the item.
+    @if (staffBranch != null)
+    {
+        <span>You can transfer items from or to <strong>@staffBranch.Name</strong>.</span>
+    }
+</p>
+<form method="post" class="form-card">
+    <div asp-validation-summary="ModelOnly" class="validation"></div>
+
+    <div class="field">
+        <label asp-for="ItemId"></label>
+        <select asp-for="ItemId">
+            <option value="">Choose item</option>
+            @foreach (var group in items.GroupBy(i => i.BranchId).OrderBy(g => branchNames.GetValueOrDefault(g.Key)))
+            {
+                <optgroup label="Held at @branchNames.GetValueOrDefault(group.Key, "Unknown branch")">
+                    @foreach (var item in group)
+                    {
+                        <option value="@item.Id">@item.LibraryCode &mdash; @item.Name (@item.ItemType)</option>
+                    }
+                </optgroup>
+            }
+        </select>
+        <span asp-validation-for="ItemId" class="validation"></span>
+    </div>
+
+    <div class="field">
+        <label asp-for="ToBranchId"></label>
+        <select asp-for="ToBranchId">
+            <option value="">Choose destination branch</option>
+            @foreach (var b in destinations)
+            {
+                <option value="@b.Id">@b.Name (@b.Code)</option>
+            }
+        </select>
+        <span asp-validation-for="ToBranchId" class="validation"></span>
+    </div>
+
+    <div class="field">
+        <label asp-for="Reason"></label>
+        <textarea asp-for="Reason" rows="3" placeholder="e.g. Requested by a borrower at the destination branch"></textarea>
+        <span asp-validation-for="Reason" class="validation"></span>
+    </div>
+
+    @if (!items.Any())
+    {
+        <p class="help">No items are currently available to transfer.</p>
+    }
+
+    <div class="button-row">
+        <button class="btn" type="submit"><i class="bi bi-send" aria-hidden="true"></i> Request Transfer</button>
+        <a class="btn btn-secondary" asp-action="Index"><i class="bi bi-arrow-left" aria-hidden="true"></i> Back to Transfers</a>
+    </div>
+</form>
+</div>

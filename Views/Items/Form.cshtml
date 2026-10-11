@@ -3,6 +3,10 @@
 @{
     var isEdit = Model.Id.HasValue;
     ViewData["Title"] = isEdit ? "Edit Item" : "Add Item";
+    var branches = (List<Branch>)ViewBag.Branches;
+    // In transit is controlled by the transfer workflow, so it is only shown
+    // when the item is already in transit.
+    var statuses = Enum.GetValues<ItemStatus>().Where(s => s != ItemStatus.InTransit || Model.Status == ItemStatus.InTransit);
 }
 
 <h1><i class="bi @(isEdit ? "bi-pencil-square" : "bi-plus-circle")" aria-hidden="true"></i> @ViewData["Title"]</h1>
@@ -58,10 +62,38 @@
 
         <div class="field">
             <label asp-for="Status"></label>
-            <select asp-for="Status"
-                    asp-items="Html.GetEnumSelectList<ItemStatus>()">
+            <select asp-for="Status">
+                @foreach (var s in statuses)
+                {
+                    <option value="@((int)s)" selected="@(Model.Status == s)">@s.Label()</option>
+                }
             </select>
             <span asp-validation-for="Status" class="validation"></span>
+        </div>
+
+        <div class="field full">
+            <label asp-for="BranchId"></label>
+            @if (isEdit)
+            {
+                <input asp-for="BranchId" type="hidden" />
+                <div class="readonly-value"><i class="bi bi-geo-alt-fill" aria-hidden="true"></i> @(branches.FirstOrDefault(b => b.Id == Model.BranchId)?.Name ?? "Unknown branch")</div>
+                <span class="field-hint">
+                    The branch is not edited here, so every move is recorded.
+                    <a asp-controller="Transfers" asp-action="Create" asp-route-itemId="@Model.Id">Request a transfer</a> to move the item, or
+                    <a asp-action="CorrectBranch" asp-route-id="@Model.Id">correct the location</a> if the record is wrong.
+                </span>
+            }
+            else
+            {
+                <select asp-for="BranchId">
+                    @foreach (var b in branches)
+                    {
+                        <option value="@b.Id">@b.Name (@b.Code)</option>
+                    }
+                </select>
+                <span class="field-hint">The physical branch that holds this item.</span>
+            }
+            <span asp-validation-for="BranchId" class="validation"></span>
         </div>
 
         <div class="field full">

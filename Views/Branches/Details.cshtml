@@ -1,0 +1,122 @@
+@model BranchDetailsViewModel
+@{
+    var b = Model.Branch;
+    ViewData["Title"] = b.Name;
+    var canTransfer = User.IsInRole("Admin") || User.IsInRole("Reception");
+    var isAdmin = User.IsInRole("Admin");
+
+    static string TypeIcon(string type) => type switch
+    {
+        "Book" => "bi-book",
+        "Music" => "bi-disc",
+        "Toy" => "bi-puzzle",
+        _ => "bi-bookmark"
+    };
+}
+<div class="page-heading">
+    <div>
+        <h1><i class="bi bi-buildings" aria-hidden="true"></i> @b.Name <span class="badge">@b.Code</span></h1>
+        <p><i class="bi bi-geo-alt" aria-hidden="true"></i> @b.Address @if (!string.IsNullOrEmpty(b.Phone)) { <span>&middot; <i class="bi bi-telephone" aria-hidden="true"></i> @b.Phone</span> }
+            @if (!b.IsActive) { <span class="status status-damaged">Inactive</span> }</p>
+    </div>
+    <a class="btn btn-secondary" asp-action="Index"><i class="bi bi-arrow-left" aria-hidden="true"></i> All Branches</a>
+</div>
+
+<div class="section-block">
+    <h2><i class="bi bi-box-seam" aria-hidden="true"></i> Branch inventory</h2>
+    <div class="pill-row">
+        <a class="pill @(Model.StatusFilter == null ? "active" : "")" asp-action="Details" asp-route-id="@b.Id">All (@Model.TotalItems)</a>
+        @foreach (var s in Enum.GetValues<ItemStatus>())
+        {
+            <a class="pill @(Model.StatusFilter == s ? "active" : "")" asp-action="Details" asp-route-id="@b.Id" asp-route-status="@s">@s.Label()</a>
+        }
+    </div>
+    <div class="table-wrap">
+    <table>
+        <thead><tr><th>Code</th><th>Type</th><th>Name</th><th>Status</th>@if (canTransfer) { <th>Actions</th> }</tr></thead>
+        <tbody>
+        @foreach (var item in Model.Items)
+        {
+            <tr>
+                <td>@item.LibraryCode</td>
+                <td><span class="badge badge-@item.ItemType.ToLowerInvariant()"><i class="bi @TypeIcon(item.ItemType)" aria-hidden="true"></i> @item.ItemType</span></td>
+                <td>@item.Name</td>
+                <td><span class="status status-@item.Status.ToString().ToLowerInvariant()">@item.Status.Label()</span></td>
+                @if (canTransfer)
+                {
+                    <td><div class="actions">
+                        @if (isAdmin)
+                        {
+                            <a class="action-btn" asp-controller="Items" asp-action="Details" asp-route-id="@item.Id"><i class="bi bi-eye" aria-hidden="true"></i> Details</a>
+                        }
+                        @if (item.Status == ItemStatus.Available)
+                        {
+                            <a class="action-btn action-btn-muted" asp-controller="Transfers" asp-action="Create" asp-route-itemId="@item.Id"><i class="bi bi-truck" aria-hidden="true"></i> Transfer</a>
+                        }
+                    </div></td>
+                }
+            </tr>
+        }
+        @if (!Model.Items.Any())
+        {
+            <tr><td colspan="5">
+                <div class="empty-state">
+                    <i class="bi bi-box-seam" aria-hidden="true"></i>
+                    <strong>No items to show</strong>
+                    @(Model.StatusFilter == null ? "This branch does not hold any items yet." : "No items at this branch have that status.")
+                </div>
+            </td></tr>
+        }
+        </tbody>
+    </table>
+    </div>
+</div>
+
+<div class="section-block">
+    <h2><i class="bi bi-truck" aria-hidden="true"></i> Open transfers involving this branch</h2>
+    @if (Model.OpenTransfers.Any())
+    {
+        <div class="table-wrap">
+        <table>
+            <thead><tr><th>#</th><th>Item</th><th>Route</th><th>Status</th><th>Requested</th>@if (canTransfer) { <th>Actions</th> }</tr></thead>
+            <tbody>
+            @foreach (var t in Model.OpenTransfers)
+            {
+                <tr>
+                    <td>@t.Id</td>
+                    <td>@t.Item.Name <small>(@t.Item.LibraryCode)</small></td>
+                    <td><span class="route">@t.FromBranch.Name <i class="bi bi-arrow-right" aria-hidden="true"></i> @t.ToBranch.Name</span></td>
+                    <td><span class="status transfer-@t.Status.ToString().ToLowerInvariant()">@t.Status.Label()</span></td>
+                    <td>@t.RequestedAt.ToString("dd MMM yyyy") <small>by @t.RequestedBy</small></td>
+                    @if (canTransfer)
+                    {
+                        <td><div class="actions"><a class="action-btn" asp-controller="Transfers" asp-action="Details" asp-route-id="@t.Id"><i class="bi bi-eye" aria-hidden="true"></i> Open</a></div></td>
+                    }
+                </tr>
+            }
+            </tbody>
+        </table>
+        </div>
+    }
+    else
+    {
+        <p class="help">No transfers are currently on their way to or from this branch.</p>
+    }
+</div>
+
+<div class="section-block">
+    <h2><i class="bi bi-people" aria-hidden="true"></i> Staff at this branch</h2>
+    @if (Model.Staff.Any())
+    {
+        <div class="pill-row">
+            @foreach (var s in Model.Staff)
+            {
+                <span class="user-pill"><i class="bi bi-person-circle" aria-hidden="true"></i> @s.UserName <span class="badge">@s.Role</span></span>
+            }
+        </div>
+    }
+    else
+    {
+        <p class="help">No staff accounts are assigned to this branch.@(isAdmin ? " Assign a branch from the Staff page." : "")</p>
+    }
+</div>

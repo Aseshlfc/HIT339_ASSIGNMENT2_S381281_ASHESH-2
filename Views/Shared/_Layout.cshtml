@@ -34,6 +34,14 @@
             {
                 <a class="@NavClass("Manager")" asp-controller="Manager" asp-action="Index">Statistics</a>
             }
+            @if (User.IsInRole("Admin") || User.IsInRole("Reception"))
+            {
+                <a class="@NavClass("Transfers")" asp-controller="Transfers" asp-action="Index">Transfers</a>
+            }
+            @if (User.Identity?.IsAuthenticated == true)
+            {
+                <a class="@NavClass("Branches")" asp-controller="Branches" asp-action="Index">Branches</a>
+            }
         </nav>
         <div class="auth-links">
             @if (User.Identity?.IsAuthenticated == true)
@@ -42,6 +50,7 @@
                     <i class="bi bi-person-circle" aria-hidden="true"></i>
                     @User.Identity.Name
                     <span class="role-tag">@User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value</span>
+                    @await Component.InvokeAsync("StaffBranchChip")
                 </span>
                 <form asp-controller="Account" asp-action="Logout" method="post" class="inline-form">
                     <button class="logout-btn" type="submit">
@@ -63,6 +72,10 @@
     @if (TempData["Error"] != null)
     {
         <div class="alert alert-error"><i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i> @TempData["Error"]</div>
+    }
+    @if (TempData["Success"] != null)
+    {
+        <div class="alert alert-success"><i class="bi bi-check-circle-fill" aria-hidden="true"></i> @TempData["Success"]</div>
     }
     @RenderBody()
 </main>

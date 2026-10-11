@@ -2,14 +2,39 @@
 @{
     ViewData["Title"] = "Loans";
     var today = DateTime.Now.Date;
+    var branches = (List<Branch>)ViewBag.Branches;
+    var branchNames = (Dictionary<int, string>)ViewBag.BranchNames;
+    var staffBranch = ViewBag.StaffBranch as Branch;
 }
 <div class="page-heading">
     <div><h1>Loans</h1><p>Borrow, return and manage late fines.</p></div>
     <a class="btn" asp-action="Borrow"><i class="bi bi-journal-plus" aria-hidden="true"></i> Borrow Item</a>
 </div>
+@if (staffBranch != null)
+{
+    <div class="desk-note"><i class="bi bi-geo-alt-fill" aria-hidden="true"></i> Reception desk: @staffBranch.Name. You can lend items held at this branch. Returns are accepted for any loan; an item returned here from another branch is recorded as now held here.</div>
+}
+@if (ViewBag.NoDesk == true)
+{
+    <div class="alert alert-error"><i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i> Your account is not assigned to a branch, so you cannot lend or return items. Ask an Admin to assign your branch.</div>
+}
+<form method="get" class="search-panel">
+    <div class="field grow">
+        <label for="branchId">Issuing branch</label>
+        <select id="branchId" name="branchId">
+            <option value="">All branches</option>
+            @foreach (var b in branches)
+            {
+                <option value="@b.Id" selected="@(ViewBag.BranchId == b.Id)">@b.Name</option>
+            }
+        </select>
+    </div>
+    <button class="btn" type="submit"><i class="bi bi-funnel" aria-hidden="true"></i> Filter</button>
+    <a class="btn btn-secondary" asp-action="Index"><i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i> Clear</a>
+</form>
 <div class="table-wrap">
 <table>
-    <thead><tr><th>Item</th><th>Borrower</th><th>Borrowed</th><th>Due</th><th>Returned</th><th>Fine</th><th>Actions</th></tr></thead>
+    <thead><tr><th>Item</th><th>Borrower</th><th>Branch</th><th>Borrowed</th><th>Due</th><th>Returned</th><th>Fine</th><th>Actions</th></tr></thead>
     <tbody>
     @foreach (var l in Model)
     {
@@ -17,6 +42,7 @@
         <tr class="@(overdue ? "overdue-row" : "")">
             <td>@l.Item.Name <small>(@l.Item.LibraryCode)</small></td>
             <td>@l.Borrower.FullName</td>
+            <td>@(l.BranchId.HasValue ? branchNames.GetValueOrDefault(l.BranchId.Value, "Unknown branch") : "Not recorded")</td>
             <td>@l.BorrowedAt.ToString("dd MMM yyyy")</td>
             <td>
                 @l.DueDate.ToString("dd MMM yyyy")
@@ -60,7 +86,7 @@
     }
     @if (!Model.Any())
     {
-        <tr><td colspan="7">
+        <tr><td colspan="8">
             <div class="empty-state">
                 <i class="bi bi-journal-x" aria-hidden="true"></i>
                 <strong>No loans recorded yet</strong>

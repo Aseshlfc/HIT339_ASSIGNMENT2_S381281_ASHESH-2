@@ -1,6 +1,7 @@
+@using LibraryManagementSystem.Controllers
 @model ManagerDashboardViewModel
 @{
-    ViewData["Title"] = "Manager Statistics";
+    ViewData["Title"] = "Manager Dashboard";
 
     static string StatusIconFor(string statusName) => statusName switch
     {
@@ -8,6 +9,7 @@
         "Borrowed" => "bi-clock-history",
         "Damaged" => "bi-exclamation-triangle-fill",
         "Destroy" => "bi-x-octagon-fill",
+        "In transit" => "bi-truck",
         _ => "bi-question-circle"
     };
 
@@ -18,9 +20,31 @@
         "Toys" => "bi-puzzle",
         _ => "bi-bookmark"
     };
+
+    var reports = new[]
+    {
+        (Key: ManagerController.Borrowing, Action: "BorrowingReport", Icon: "bi-journal-check", Title: "Borrowing statistics", Text: "Loans by date range, category and branch, with the most borrowed items."),
+        (Key: ManagerController.Fines, Action: "FineAudit", Icon: "bi-currency-dollar", Title: "Fine revenue audit", Text: "Fines assessed, paid and outstanding, listed loan by loan."),
+        (Key: ManagerController.Inventory, Action: "InventoryHealth", Icon: "bi-box-seam", Title: "Inventory health", Text: "Stock by status, branch and category, and items needing attention.")
+    };
 }
-<h1><i class="bi bi-graph-up" aria-hidden="true"></i> Manager Statistics</h1>
-<p class="help">A live snapshot of borrowing activity, item stock and fines across the library.</p>
+<h1><i class="bi bi-graph-up" aria-hidden="true"></i> Manager Dashboard</h1>
+<p class="help">A live snapshot of borrowing activity, item stock and fines across every branch. Open a report to filter it and export it as CSV or PDF.</p>
+
+<div class="report-grid">
+    @foreach (var r in reports)
+    {
+        <div class="report-card">
+            <h3><i class="bi @r.Icon" aria-hidden="true"></i> @r.Title</h3>
+            <p>@r.Text</p>
+            <div class="button-row">
+                <a class="btn btn-sm" asp-action="@r.Action"><i class="bi bi-eye" aria-hidden="true"></i> Open report</a>
+                <a class="btn btn-sm btn-secondary" asp-action="Export" asp-route-report="@r.Key" asp-route-format="csv"><i class="bi bi-filetype-csv" aria-hidden="true"></i> CSV</a>
+                <a class="btn btn-sm btn-secondary" asp-action="Export" asp-route-report="@r.Key" asp-route-format="pdf"><i class="bi bi-filetype-pdf" aria-hidden="true"></i> PDF</a>
+            </div>
+        </div>
+    }
+</div>
 
 <div class="section-block">
     <h2><i class="bi bi-journal-check" aria-hidden="true"></i> Borrowing statistics</h2>
@@ -33,11 +57,12 @@
 </div>
 
 <div class="section-block">
-    <h2><i class="bi bi-box-seam" aria-hidden="true"></i> Item status statistics</h2>
+    <h2><i class="bi bi-box-seam" aria-hidden="true"></i> Inventory</h2>
     <div class="stats-grid">
+        <div class="stat-card"><span><i class="bi bi-collection" aria-hidden="true"></i> Total inventory</span><strong>@Model.TotalItems</strong></div>
     @foreach (var x in Model.StatusCounts)
     {
-        <div class="stat-card"><span><i class="bi @StatusIconFor(x.Key)" aria-hidden="true"></i> @x.Key</span><strong>@x.Value</strong></div>
+        <div class="stat-card @((x.Key is "Damaged" or "Destroy") && x.Value > 0 ? "stat-warn" : "")"><span><i class="bi @StatusIconFor(x.Key)" aria-hidden="true"></i> @x.Key</span><strong>@x.Value</strong></div>
     }
     </div>
 
@@ -48,6 +73,39 @@
         <div class="stat-card"><span><i class="bi @TypeIconFor(x.Key)" aria-hidden="true"></i> @x.Key</span><strong>@x.Value</strong></div>
     }
     </div>
+</div>
+
+<div class="section-block">
+    <h2><i class="bi bi-buildings" aria-hidden="true"></i> Branches</h2>
+    <p class="help">Inventory currently held at each branch and loans issued there. @Model.OpenTransfers open transfer@(Model.OpenTransfers == 1 ? "" : "s") between branches.</p>
+    <div class="table-wrap">
+    <table>
+        <thead>
+            <tr>
+                <th>Branch</th><th class="num">Items</th><th class="num">Available</th><th class="num">Borrowed</th><th class="num">In transit</th>
+                <th class="num">Out of service</th><th class="num">Loans issued</th><th class="num">Active</th><th class="num">Overdue</th>
+            </tr>
+        </thead>
+        <tbody>
+        @foreach (var b in Model.Branches)
+        {
+            <tr>
+                <td>@b.Name @if (!b.IsActive) { <small>(inactive)</small> }</td>
+                <td class="num">@b.Items</td><td class="num">@b.Available</td><td class="num">@b.Borrowed</td><td class="num">@b.InTransit</td>
+                <td class="num">@b.OutOfService</td><td class="num">@b.LoansIssued</td><td class="num">@b.ActiveLoans</td><td class="num">@b.OverdueLoans</td>
+            </tr>
+        }
+        @if (!Model.Branches.Any())
+        {
+            <tr><td colspan="9"><div class="empty-state"><i class="bi bi-buildings" aria-hidden="true"></i><strong>No branches yet</strong>Branches appear here once they are created.</div></td></tr>
+        }
+        </tbody>
+    </table>
+    </div>
+    @if (Model.LoansWithoutBranch > 0)
+    {
+        <p class="help" style="margin-top:12px;"><i class="bi bi-info-circle" aria-hidden="true"></i> @Model.LoansWithoutBranch loan@(Model.LoansWithoutBranch == 1 ? " was" : "s were") made before the library recorded an issuing branch, so @(Model.LoansWithoutBranch == 1 ? "it is" : "they are") not counted against any branch.</p>
+    }
 </div>
 
 <div class="section-block">
@@ -63,11 +121,11 @@
     <h2><i class="bi bi-star" aria-hidden="true"></i> Most borrowed items</h2>
     <div class="table-wrap">
     <table>
-        <thead><tr><th>Item</th><th>Library code</th><th>Times borrowed</th></tr></thead>
+        <thead><tr><th>Item</th><th>Library code</th><th class="num">Times borrowed</th></tr></thead>
         <tbody>
         @foreach (var row in Model.PopularItems)
         {
-            <tr><td>@row.Name</td><td>@row.LibraryCode</td><td>@row.BorrowCount</td></tr>
+            <tr><td>@row.Name</td><td>@row.LibraryCode</td><td class="num">@row.BorrowCount</td></tr>
         }
         @if (!Model.PopularItems.Any())
         {

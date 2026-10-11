@@ -13,6 +13,9 @@ public class StaffFormViewModel
     [Required(ErrorMessage = "Please choose a role.")]
     public string Role { get; set; } = "Reception";
 
+    [Display(Name = "Branch")]
+    public int? BranchId { get; set; }
+
     [StringLength(100, MinimumLength = 6, ErrorMessage = "Password must be at least 6 characters.")]
     [DataType(DataType.Password)]
     public string? Password { get; set; }

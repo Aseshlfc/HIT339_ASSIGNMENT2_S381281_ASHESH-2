@@ -25,6 +25,9 @@ public class ItemFormViewModel
 
     public ItemStatus Status { get; set; } = ItemStatus.Available;
 
+    [Display(Name = "Branch")]
+    public int? BranchId { get; set; }
+
     [StringLength(120, ErrorMessage = "Author cannot be more than 120 characters.")]
     public string? Author { get; set; }
 

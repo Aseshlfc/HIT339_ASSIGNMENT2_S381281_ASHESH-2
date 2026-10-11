@@ -12,7 +12,11 @@ public class HomeController : Controller
 
     public HomeController(LibraryContext db) => _db = db;
 
-    public async Task<IActionResult> Index(string? q, string? type, bool availableOnly = false)
+    // Target of UseExceptionHandler("/Home/Error") in Program.cs.
+    [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
+    public IActionResult Error() => View();
+
+    public async Task<IActionResult> Index(string? q, string? type, bool availableOnly = false, int? branchId = null)
     {
         var query = _db.Items.AsNoTracking().Where(i => i.Status != ItemStatus.Destroy);
 
@@ -38,6 +42,14 @@ public class HomeController : Controller
 
         if (availableOnly)
             query = query.Where(i => i.Status == ItemStatus.Available);
+
+        if (branchId.HasValue)
+            query = query.Where(i => i.BranchId == branchId);
+
+        var branches = await _db.Branches.AsNoTracking().OrderBy(b => b.Name).ToListAsync();
+        ViewBag.Branches = branches;
+        ViewBag.BranchNames = branches.ToDictionary(b => b.Id, b => b.Name);
+        ViewBag.BranchId = branchId;
 
         ViewBag.Query = q;
         ViewBag.Type = type;
