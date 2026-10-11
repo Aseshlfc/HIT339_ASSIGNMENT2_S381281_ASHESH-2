@@ -18,6 +18,8 @@ public class LibraryContext : IdentityDbContext<ApplicationUser>
     public DbSet<ItemTransfer> ItemTransfers => Set<ItemTransfer>();
 
     public DbSet<Notification> Notifications => Set<Notification>();
+
+    public DbSet<Reservation> Reservations => Set<Reservation>();
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
