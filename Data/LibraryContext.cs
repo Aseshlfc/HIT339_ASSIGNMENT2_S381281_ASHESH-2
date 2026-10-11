@@ -17,6 +17,7 @@ public class LibraryContext : IdentityDbContext<ApplicationUser>
     public DbSet<Branch> Branches => Set<Branch>();
     public DbSet<ItemTransfer> ItemTransfers => Set<ItemTransfer>();
 
+    public DbSet<Notification> Notifications => Set<Notification>();
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
