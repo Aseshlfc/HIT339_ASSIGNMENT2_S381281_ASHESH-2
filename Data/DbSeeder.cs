@@ -15,10 +15,23 @@ public static class DbSeeder
         }
 
         await AddStaffUserAsync(userManager, "admin", "Admin123!", "Admin");
-        await AddStaffUserAsync(userManager, "reception", "Reception123!", "Reception");
+        // The reception desk account starts at the default branch.
+        await AddStaffUserAsync(userManager, "reception", "Reception123!", "Reception", Branch.DefaultBranchId);
         await AddStaffUserAsync(userManager, "manager", "Manager123!", "Manager");
 
-        if (!await db.Items.AnyAsync())
+        // Demo branches, added once alongside the default branch that the
+        // multi-branch migration creates.
+        if (await db.Branches.CountAsync() <= 1)
+        {
+            db.Branches.AddRange(
+                new Branch { Code = "NTH", Name = "Northside Branch", Address = "88 Northside Parade, Springfield", Phone = "0800000002" },
+                new Branch { Code = "RIV", Name = "Riverside Branch", Address = "14 Riverside Drive, Springfield", Phone = "0800000003" }
+            );
+            await db.SaveChangesAsync();
+        }
+
+        var isFreshCatalogue = !await db.Items.AnyAsync();
+        if (isFreshCatalogue)
         {
             db.Items.AddRange(
                 new Book { Name = "The Hobbit", Description = "A reluctant hobbit sets out on an unexpected adventure.", LibraryCode = "B001", Status = ItemStatus.Available, Author = "J. R. R. Tolkien", Genre = "Fantasy", PublicationYear = 1937 },
@@ -45,6 +58,23 @@ public static class DbSeeder
                 new Toy { Name = "Lego Space Set", Description = "A buildable space-themed construction set.", LibraryCode = "T006", Status = ItemStatus.Damaged, ToyType = "Construction", MinimumAge = 7, Manufacturer = "Library Toy Collection" }
             );
             await db.SaveChangesAsync();
+
+            // Spread the demo catalogue across the branches. Only done for a
+            // brand-new database: items in an upgraded database stay where the
+            // migration put them (the default branch).
+            var northside = await db.Branches.SingleOrDefaultAsync(b => b.Code == "NTH");
+            var riverside = await db.Branches.SingleOrDefaultAsync(b => b.Code == "RIV");
+            if (northside != null && riverside != null)
+            {
+                string[] northsideCodes = ["B003", "B007", "M003", "M005", "T002", "T004"];
+                string[] riversideCodes = ["B005", "B006", "M001", "T001", "T006"];
+                foreach (var item in await db.Items.ToListAsync())
+                {
+                    if (northsideCodes.Contains(item.LibraryCode)) item.BranchId = northside.Id;
+                    else if (riversideCodes.Contains(item.LibraryCode)) item.BranchId = riverside.Id;
+                }
+                await db.SaveChangesAsync();
+            }
         }
 
         if (!await db.Borrowers.AnyAsync())
@@ -90,16 +120,21 @@ public static class DbSeeder
                 // Returned late, fine still outstanding.
                 new Loan { ItemId = abbeyRoad.Id, BorrowerId = priya.Id, BorrowedAt = now.AddDays(-25), DueDate = now.Date.AddDays(-11), ReturnedAt = now.AddDays(-8), FineAmount = 3 * LibraryRules.FinePerLateDay, FinePaid = false }
             );
+            // These loans are created by the seeder itself, so the branch that
+            // holds each item is known and is recorded as the issuing branch.
+            foreach (var loan in db.ChangeTracker.Entries<Loan>().Select(e => e.Entity))
+                loan.BranchId = (await db.Items.FindAsync(loan.ItemId))!.BranchId;
+
             await db.SaveChangesAsync();
         }
     }
 
-    private static async Task AddStaffUserAsync(UserManager<ApplicationUser> userManager, string username, string password, string role)
+    private static async Task AddStaffUserAsync(UserManager<ApplicationUser> userManager, string username, string password, string role, int? branchId = null)
     {
         var existing = await userManager.FindByNameAsync(username);
         if (existing != null) return;
 
-        var user = new ApplicationUser { UserName = username };
+        var user = new ApplicationUser { UserName = username, BranchId = branchId };
         var result = await userManager.CreateAsync(user, password);
         if (result.Succeeded)
             await userManager.AddToRoleAsync(user, role);

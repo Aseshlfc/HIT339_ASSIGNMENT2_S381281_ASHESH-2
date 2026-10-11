@@ -14,6 +14,8 @@ public class LibraryContext : IdentityDbContext<ApplicationUser>
     public DbSet<Toy> Toys => Set<Toy>();
     public DbSet<Borrower> Borrowers => Set<Borrower>();
     public DbSet<Loan> Loans => Set<Loan>();
+    public DbSet<Branch> Branches => Set<Branch>();
+    public DbSet<ItemTransfer> ItemTransfers => Set<ItemTransfer>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -57,5 +59,56 @@ public class LibraryContext : IdentityDbContext<ApplicationUser>
             .WithMany(b => b.Loans)
             .HasForeignKey(l => l.BorrowerId)
             .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<Branch>()
+            .HasIndex(b => b.Code)
+            .IsUnique();
+
+        // Created by the migration so that every existing item has a valid
+        // branch to belong to when the BranchId column is added.
+        modelBuilder.Entity<Branch>().HasData(new Branch
+        {
+            Id = Branch.DefaultBranchId,
+            Code = "CEN",
+            Name = "Central Library",
+            Address = "1 Library Square, Springfield",
+            Phone = "0800000001",
+            IsActive = true
+        });
+
+        modelBuilder.Entity<Item>()
+            .HasOne(i => i.Branch)
+            .WithMany(b => b.Items)
+            .HasForeignKey(i => i.BranchId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<ApplicationUser>()
+            .HasOne(u => u.Branch)
+            .WithMany(b => b.Staff)
+            .HasForeignKey(u => u.BranchId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<Loan>()
+            .HasOne(l => l.Branch)
+            .WithMany()
+            .HasForeignKey(l => l.BranchId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<ItemTransfer>(transfer =>
+        {
+            transfer.HasOne(t => t.Item).WithMany().HasForeignKey(t => t.ItemId).OnDelete(DeleteBehavior.Restrict);
+            transfer.HasOne(t => t.FromBranch).WithMany().HasForeignKey(t => t.FromBranchId).OnDelete(DeleteBehavior.Restrict);
+            transfer.HasOne(t => t.ToBranch).WithMany().HasForeignKey(t => t.ToBranchId).OnDelete(DeleteBehavior.Restrict);
+
+            // Same approach as Item.Status: two requests acting on the same
+            // transfer cannot both succeed, so it cannot be completed twice.
+            transfer.Property(t => t.Status).IsConcurrencyToken();
+
+            // At most one open (Requested = 0 / InTransit = 1) transfer per item,
+            // enforced by the database as well as by TransferService.
+            transfer.HasIndex(t => t.ItemId, "IX_ItemTransfers_OpenItem")
+                .IsUnique()
+                .HasFilter("\"Status\" IN (0, 1)");
+        });
     }
 }

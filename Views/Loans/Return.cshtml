@@ -20,6 +20,10 @@
     {
         <div class="fine-highlight zero"><i class="bi bi-check-circle-fill" aria-hidden="true"></i> No late fine &mdash; on time</div>
     }
+    @if (ViewBag.IsCrossBranchReturn == true)
+    {
+        <div class="desk-note"><i class="bi bi-arrow-left-right" aria-hidden="true"></i> This item is held at @ViewBag.ItemBranchName. Returning it here will record it as now held at @(((Branch)ViewBag.StaffBranch).Name), and the move will appear in its movement history.</div>
+    }
     <div class="field">
         <label asp-for="ReturnStatus">Item condition/status after return</label>
         <select asp-for="ReturnStatus">

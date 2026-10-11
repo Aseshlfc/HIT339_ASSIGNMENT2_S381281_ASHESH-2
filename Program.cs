@@ -1,5 +1,6 @@
 using LibraryManagementSystem.Data;
 using LibraryManagementSystem.Models;
+using LibraryManagementSystem.Services;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
@@ -14,6 +15,10 @@ builder.Services
     .AddIdentity<ApplicationUser, IdentityRole>()
     .AddEntityFrameworkStores<LibraryContext>()
     .AddDefaultTokenProviders();
+
+builder.Services.AddScoped<ITransferService, TransferService>();
+builder.Services.AddScoped<IReportService, ReportService>();
+builder.Services.AddSingleton<IReportPdfService, ReportPdfService>();
 
 builder.Services.ConfigureApplicationCookie(options =>
 {

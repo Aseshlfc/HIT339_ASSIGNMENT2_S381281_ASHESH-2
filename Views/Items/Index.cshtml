@@ -9,6 +9,9 @@
         "Toy" => "bi-puzzle",
         _ => "bi-bookmark"
     };
+
+    var branches = (List<Branch>)ViewBag.Branches;
+    var branchNames = (Dictionary<int, string>)ViewBag.BranchNames;
 }
 <div class="page-heading">
     <div>
@@ -18,9 +21,24 @@
     <a class="btn" asp-action="Create"><i class="bi bi-plus-lg" aria-hidden="true"></i> Add Item</a>
 </div>
 
+<form method="get" class="search-panel">
+    <div class="field grow">
+        <label for="branchId">Branch</label>
+        <select id="branchId" name="branchId">
+            <option value="">All branches</option>
+            @foreach (var b in branches)
+            {
+                <option value="@b.Id" selected="@(ViewBag.BranchId == b.Id)">@b.Name</option>
+            }
+        </select>
+    </div>
+    <button class="btn" type="submit"><i class="bi bi-funnel" aria-hidden="true"></i> Filter</button>
+    <a class="btn btn-secondary" asp-action="Index"><i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i> Clear</a>
+</form>
+
 <div class="table-wrap">
 <table>
-    <thead><tr><th>Code</th><th>Type</th><th>Name</th><th>Status</th><th>Details</th><th>Actions</th></tr></thead>
+    <thead><tr><th>Code</th><th>Type</th><th>Name</th><th>Branch</th><th>Status</th><th>Details</th><th>Actions</th></tr></thead>
     <tbody>
     @foreach (var item in Model)
     {
@@ -28,13 +46,15 @@
             <td>@item.LibraryCode</td>
             <td><span class="badge badge-@item.ItemType.ToLowerInvariant()"><i class="bi @TypeIcon(item.ItemType)" aria-hidden="true"></i> @item.ItemType</span></td>
             <td>@item.Name</td>
-            <td><span class="status status-@item.Status.ToString().ToLowerInvariant()">@item.Status</span></td>
+            <td><i class="bi bi-geo-alt" aria-hidden="true"></i> @branchNames.GetValueOrDefault(item.BranchId, "Unknown branch")</td>
+            <td><span class="status status-@item.Status.ToString().ToLowerInvariant()">@item.Status.Label()</span></td>
             <td>
                 @if (item is Book b) { <span>@b.Author &middot; @b.Genre</span> }
                 else if (item is Music m) { <span>@m.Artist &middot; @m.ReleaseYear</span> }
                 else if (item is Toy t) { <span>@t.ToyType &middot; Age @t.MinimumAge+</span> }
             </td>
             <td class="actions">
+                <a class="action-btn action-btn-muted" asp-action="Details" asp-route-id="@item.Id"><i class="bi bi-eye" aria-hidden="true"></i> View</a>
                 <a class="action-btn" asp-action="Edit" asp-route-id="@item.Id"><i class="bi bi-pencil-square" aria-hidden="true"></i> Edit</a>
                 <a class="action-btn action-btn-danger" asp-action="Delete" asp-route-id="@item.Id"><i class="bi bi-trash3" aria-hidden="true"></i> Delete</a>
             </td>
@@ -42,11 +62,11 @@
     }
     @if (!Model.Any())
     {
-        <tr><td colspan="6">
+        <tr><td colspan="7">
             <div class="empty-state">
                 <i class="bi bi-box-seam" aria-hidden="true"></i>
-                <strong>No items yet</strong>
-                Add your first book, music item or toy to get started.
+                <strong>@(ViewBag.BranchId == null ? "No items yet" : "No items at this branch")</strong>
+                @(ViewBag.BranchId == null ? "Add your first book, music item or toy to get started." : "Choose another branch or clear the filter.")
             </div>
         </td></tr>
     }

@@ -1,5 +1,6 @@
 using LibraryManagementSystem.Data;
 using LibraryManagementSystem.Models;
+using LibraryManagementSystem.Services;
 using LibraryManagementSystem.ViewModels;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -12,13 +13,51 @@ public class ItemsController : Controller
 {
     private readonly LibraryContext _db;
 
-    public ItemsController(LibraryContext db) => _db = db;
+    private readonly ITransferService _transfers;
 
-    public async Task<IActionResult> Index()
-        => View(await _db.Items.AsNoTracking().OrderBy(i => i.LibraryCode).ToListAsync());
+    public ItemsController(LibraryContext db, ITransferService? transfers = null)
+    {
+        _db = db;
+        _transfers = transfers ?? new TransferService(db);
+    }
+
+    public async Task<IActionResult> Index(int? branchId = null)
+    {
+        var query = _db.Items.AsNoTracking();
+        if (branchId.HasValue) query = query.Where(i => i.BranchId == branchId);
+
+        var branches = await _db.Branches.AsNoTracking().OrderBy(b => b.Name).ToListAsync();
+        ViewBag.Branches = branches;
+        ViewBag.BranchNames = branches.ToDictionary(b => b.Id, b => b.Name);
+        ViewBag.BranchId = branchId;
+        return View(await query.OrderBy(i => i.LibraryCode).ToListAsync());
+    }
+
+    public async Task<IActionResult> Details(int id)
+    {
+        var item = await _db.Items.AsNoTracking().SingleOrDefaultAsync(i => i.Id == id);
+        if (item == null) return NotFound();
+
+        var transfers = await _db.ItemTransfers.AsNoTracking()
+            .Include(t => t.FromBranch).Include(t => t.ToBranch)
+            .Where(t => t.ItemId == id)
+            .OrderByDescending(t => t.RequestedAt)
+            .ToListAsync();
+
+        return View(new ItemDetailsViewModel
+        {
+            Item = item,
+            BranchName = await _db.Branches.Where(b => b.Id == item.BranchId).Select(b => b.Name).SingleOrDefaultAsync() ?? "Unknown",
+            OpenTransfer = transfers.FirstOrDefault(t => t.IsOpen),
+            TransferHistory = transfers,
+            LoanCount = await _db.Loans.CountAsync(l => l.ItemId == id),
+            ActiveLoan = await _db.Loans.AsNoTracking().Include(l => l.Borrower)
+                .FirstOrDefaultAsync(l => l.ItemId == id && l.ReturnedAt == null)
+        });
+    }
 
     [HttpGet]
-    public IActionResult Create() => View("Form", new ItemFormViewModel());
+    public Task<IActionResult> Create() => FormView(new ItemFormViewModel());
 
     [HttpPost]
     [ValidateAntiForgeryToken]
@@ -28,7 +67,11 @@ public class ItemsController : Controller
         if (await _db.Items.AnyAsync(i => i.LibraryCode == model.LibraryCode))
             ModelState.AddModelError(nameof(model.LibraryCode), "Library code must be unique.");
 
-        if (!ModelState.IsValid) return View("Form", model);
+        if (model.Status == ItemStatus.InTransit)
+            ModelState.AddModelError(nameof(model.Status), "In transit is set by the transfer workflow and cannot be chosen here.");
+        await ValidateBranchAsync(model, currentBranchId: null);
+
+        if (!ModelState.IsValid) return await FormView(model);
 
         var item = CreateItemFromModel(model);
         _db.Items.Add(item);
@@ -41,7 +84,7 @@ public class ItemsController : Controller
     {
         var item = await _db.Items.FindAsync(id);
         if (item == null) return NotFound();
-        return View("Form", ToFormModel(item));
+        return await FormView(ToFormModel(item));
     }
 
     [HttpPost]
@@ -54,16 +97,32 @@ public class ItemsController : Controller
         if (await _db.Items.AnyAsync(i => i.LibraryCode == model.LibraryCode && i.Id != model.Id.Value))
             ModelState.AddModelError(nameof(model.LibraryCode), "Library code must be unique.");
 
-        if (!ModelState.IsValid) return View("Form", model);
+        if (!ModelState.IsValid) return await FormView(model);
 
         var item = await _db.Items.FindAsync(model.Id.Value);
         if (item == null) return NotFound();
+
+        // An existing item's branch is never changed by this form: a physical
+        // move goes through a transfer and a wrong record through "Correct
+        // location", so every change of location leaves a history record.
+        if (model.BranchId.HasValue && model.BranchId != item.BranchId)
+            ModelState.AddModelError(nameof(model.BranchId), "The branch cannot be changed here. Request a transfer to move the item, or use Correct location to fix a wrong record.");
+        model.BranchId = item.BranchId;
+
+        var hasOpenTransfer = await _db.ItemTransfers.AnyAsync(t => t.ItemId == item.Id
+            && (t.Status == TransferStatus.Requested || t.Status == TransferStatus.InTransit));
+        if (hasOpenTransfer && model.Status != item.Status)
+            ModelState.AddModelError(string.Empty, "This item has an open transfer. Complete or cancel the transfer before changing its status.");
+        else if (model.Status == ItemStatus.InTransit && item.Status != ItemStatus.InTransit)
+            ModelState.AddModelError(nameof(model.Status), "In transit is set by the transfer workflow and cannot be chosen here.");
+
+        if (!ModelState.IsValid) return await FormView(model);
 
         // For simplicity, item type cannot be changed after creation.
         if (!string.Equals(item.ItemType, model.ItemType, StringComparison.OrdinalIgnoreCase))
         {
             ModelState.AddModelError(nameof(model.ItemType), "Item type cannot be changed after creation.");
-            return View("Form", model);
+            return await FormView(model);
         }
 
         item.Name = model.Name;
@@ -100,7 +159,7 @@ public class ItemsController : Controller
             // else (e.g. Reception borrowing it) changed this item's status
             // between our read and our write.
             ModelState.AddModelError(string.Empty, "This item was changed by someone else just now. Please reload and try again.");
-            return View("Form", model);
+            return await FormView(model);
         }
 
         return RedirectToAction(nameof(Index));
@@ -126,9 +185,83 @@ public class ItemsController : Controller
             return RedirectToAction(nameof(Index));
         }
 
+        if (await _db.ItemTransfers.AnyAsync(t => t.ItemId == id))
+        {
+            TempData["Error"] = "This item has transfer history and cannot be deleted. Set its status to Destroy instead.";
+            return RedirectToAction(nameof(Index));
+        }
+
         _db.Items.Remove(item);
-        await _db.SaveChangesAsync();
+        try
+        {
+            await _db.SaveChangesAsync();
+        }
+        catch (DbUpdateException)
+        {
+            // Covers a status change or a new loan/transfer made by someone
+            // else between loading the item and deleting it.
+            TempData["Error"] = "This item was changed by someone else just now and was not deleted. Please reload and try again.";
+        }
         return RedirectToAction(nameof(Index));
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> CorrectBranch(int id)
+    {
+        var item = await _db.Items.AsNoTracking().SingleOrDefaultAsync(i => i.Id == id);
+        if (item == null) return NotFound();
+        return await CorrectionView(item, new ItemBranchCorrectionViewModel { ItemId = item.Id });
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> CorrectBranch(ItemBranchCorrectionViewModel model)
+    {
+        var item = await _db.Items.AsNoTracking().SingleOrDefaultAsync(i => i.Id == model.ItemId);
+        if (item == null) return NotFound();
+
+        if (ModelState.IsValid)
+        {
+            var result = await _transfers.RecordCorrectionAsync(item.Id, model.ToBranchId!.Value, model.Reason, User?.Identity?.Name ?? "unknown");
+            if (result.Succeeded)
+            {
+                TempData["Success"] = result.Message;
+                return RedirectToAction(nameof(Details), new { id = item.Id });
+            }
+            ModelState.AddModelError(string.Empty, result.Message);
+        }
+        return await CorrectionView(item, model);
+    }
+
+    private async Task<IActionResult> CorrectionView(Item item, ItemBranchCorrectionViewModel model)
+    {
+        var branches = await _db.Branches.AsNoTracking().OrderBy(b => b.Name).ToListAsync();
+        model.ItemName = item.Name;
+        model.LibraryCode = item.LibraryCode;
+        model.CurrentBranchName = branches.SingleOrDefault(b => b.Id == item.BranchId)?.Name ?? "Unknown";
+        ViewBag.Branches = branches.Where(b => b.IsActive && b.Id != item.BranchId).ToList();
+        return View("CorrectBranch", model);
+    }
+
+    private async Task<IActionResult> FormView(ItemFormViewModel model)
+    {
+        // Inactive branches are not offered, except the one the item is already at.
+        ViewBag.Branches = await _db.Branches.AsNoTracking()
+            .Where(b => b.IsActive || b.Id == model.BranchId)
+            .OrderBy(b => b.Name)
+            .ToListAsync();
+        return View("Form", model);
+    }
+
+    private async Task ValidateBranchAsync(ItemFormViewModel model, int? currentBranchId)
+    {
+        if (!model.BranchId.HasValue || model.BranchId == currentBranchId) return;
+
+        var branch = await _db.Branches.AsNoTracking().SingleOrDefaultAsync(b => b.Id == model.BranchId);
+        if (branch == null)
+            ModelState.AddModelError(nameof(model.BranchId), "The selected branch was not found.");
+        else if (!branch.IsActive)
+            ModelState.AddModelError(nameof(model.BranchId), $"{branch.Name} is inactive and cannot hold items.");
     }
 
     private void ValidateTypeSpecificFields(ItemFormViewModel model)
@@ -186,6 +319,8 @@ public class ItemsController : Controller
         item.Description = model.Description;
         item.LibraryCode = model.LibraryCode;
         item.Status = model.Status;
+        // No branch chosen (e.g. created by code rather than the form): default branch.
+        item.BranchId = model.BranchId ?? Branch.DefaultBranchId;
         return item;
     }
 
@@ -198,7 +333,8 @@ public class ItemsController : Controller
             Name = item.Name,
             Description = item.Description,
             LibraryCode = item.LibraryCode,
-            Status = item.Status
+            Status = item.Status,
+            BranchId = item.BranchId
         };
 
         switch (item)

@@ -2,6 +2,7 @@
 @{
     var isEdit = !string.IsNullOrEmpty(Model.Id);
     ViewData["Title"] = isEdit ? "Edit Staff Account" : "Add Staff Account";
+    var branches = (List<Branch>)ViewBag.Branches;
 }
 
 <div class="narrow">
@@ -31,8 +32,21 @@
         </div>
 
         <div class="field">
+            <label asp-for="BranchId"></label>
+            <select asp-for="BranchId">
+                <option value="">Not assigned to a branch</option>
+                @foreach (var b in branches)
+                {
+                    <option value="@b.Id">@b.Name (@b.Code)</option>
+                }
+            </select>
+            <span class="field-hint">Reception staff work at their branch's desk: they lend that branch's items and handle its transfers.</span>
+            <span asp-validation-for="BranchId" class="validation"></span>
+        </div>
+
+        <div class="field">
             <label asp-for="Password">@(isEdit ? "New password (leave blank to keep unchanged)" : "Password")</label>
-            <input asp-for="Password" />
+            <input asp-for="Password" autocomplete="new-password" />
             <span asp-validation-for="Password" class="validation"></span>
         </div>
 

@@ -1,0 +1,97 @@
+@model ItemDetailsViewModel
+@{
+    var item = Model.Item;
+    ViewData["Title"] = item.Name;
+}
+<div class="narrow wide-form">
+<div class="page-heading">
+    <div>
+        <h1><i class="bi bi-bookmark" aria-hidden="true"></i> @item.Name</h1>
+        <p><span class="badge badge-@item.ItemType.ToLowerInvariant()">@item.ItemType</span> <span class="status status-@item.Status.ToString().ToLowerInvariant()">@item.Status.Label()</span></p>
+    </div>
+    <a class="btn btn-secondary" asp-action="Index"><i class="bi bi-arrow-left" aria-hidden="true"></i> Back to Items</a>
+</div>
+
+<div class="form-card">
+    <dl>
+        <dt>Library code</dt><dd>@item.LibraryCode</dd>
+        <dt>Physical location</dt>
+        <dd>
+            <a asp-controller="Branches" asp-action="Details" asp-route-id="@item.BranchId"><i class="bi bi-geo-alt-fill" aria-hidden="true"></i> @Model.BranchName</a>
+            @if (Model.OpenTransfer != null)
+            {
+                <span>&middot; @(Model.OpenTransfer.Status == TransferStatus.InTransit ? "in transit to" : "transfer requested to") @Model.OpenTransfer.ToBranch.Name
+                (<a asp-controller="Transfers" asp-action="Details" asp-route-id="@Model.OpenTransfer.Id">transfer #@Model.OpenTransfer.Id</a>)</span>
+            }
+        </dd>
+        <dt>Description</dt><dd>@item.Description</dd>
+        @if (item is Book book)
+        {
+            <dt>Author</dt><dd>@book.Author</dd>
+            <dt>Genre</dt><dd>@book.Genre</dd>
+            <dt>Year</dt><dd>@book.PublicationYear</dd>
+        }
+        else if (item is Music music)
+        {
+            <dt>Artist</dt><dd>@music.Artist</dd>
+            <dt>Genre</dt><dd>@music.Genre</dd>
+            <dt>Year</dt><dd>@music.ReleaseYear</dd>
+        }
+        else if (item is Toy toy)
+        {
+            <dt>Type</dt><dd>@toy.ToyType</dd>
+            <dt>Minimum age</dt><dd>@toy.MinimumAge+</dd>
+            <dt>Manufacturer</dt><dd>@toy.Manufacturer</dd>
+        }
+        <dt>Loans</dt>
+        <dd>
+            @Model.LoanCount recorded
+            @if (Model.ActiveLoan != null)
+            {
+                <span>&middot; currently on loan to @Model.ActiveLoan.Borrower.FullName, due @Model.ActiveLoan.DueDate.ToString("dd MMM yyyy")</span>
+            }
+        </dd>
+    </dl>
+    <div class="button-row">
+        <a class="btn" asp-action="Edit" asp-route-id="@item.Id"><i class="bi bi-pencil-square" aria-hidden="true"></i> Edit</a>
+        @if (item.Status == ItemStatus.Available && Model.OpenTransfer == null)
+        {
+            <a class="btn btn-secondary" asp-controller="Transfers" asp-action="Create" asp-route-itemId="@item.Id"><i class="bi bi-truck" aria-hidden="true"></i> Request transfer</a>
+        }
+        @if (item.Status != ItemStatus.Borrowed && item.Status != ItemStatus.InTransit && Model.OpenTransfer == null)
+        {
+            <a class="btn btn-secondary" asp-action="CorrectBranch" asp-route-id="@item.Id"><i class="bi bi-geo-alt" aria-hidden="true"></i> Correct location</a>
+        }
+    </div>
+</div>
+
+<h2><i class="bi bi-clock-history" aria-hidden="true"></i> Movement history</h2>
+<div class="table-wrap">
+<table>
+    <thead><tr><th>#</th><th>Type</th><th>Route</th><th>Status</th><th>Recorded</th><th>Closed</th></tr></thead>
+    <tbody>
+    @foreach (var t in Model.TransferHistory)
+    {
+        <tr>
+            <td><a asp-controller="Transfers" asp-action="Details" asp-route-id="@t.Id">@t.Id</a></td>
+            <td><span class="kind-tag">@t.Kind.Label()</span></td>
+            <td><span class="route">@t.FromBranch.Name <i class="bi bi-arrow-right" aria-hidden="true"></i> @t.ToBranch.Name</span></td>
+            <td><span class="status transfer-@t.Status.ToString().ToLowerInvariant()">@t.Status.Label()</span></td>
+            <td>@t.RequestedAt.ToString("dd MMM yyyy") <small>by @t.RequestedBy</small></td>
+            <td>@(t.ClosedAt?.ToString("dd MMM yyyy") ?? "—")</td>
+        </tr>
+    }
+    @if (!Model.TransferHistory.Any())
+    {
+        <tr><td colspan="6">
+            <div class="empty-state">
+                <i class="bi bi-truck" aria-hidden="true"></i>
+                <strong>No movements yet</strong>
+                This item has never been moved between branches.
+            </div>
+        </td></tr>
+    }
+    </tbody>
+</table>
+</div>
+</div>

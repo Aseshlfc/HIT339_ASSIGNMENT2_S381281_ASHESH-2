@@ -1,0 +1,42 @@
+@model ItemBranchCorrectionViewModel
+@{
+    ViewData["Title"] = "Correct Item Location";
+    var branches = (List<Branch>)ViewBag.Branches;
+}
+<div class="narrow">
+<h1><i class="bi bi-geo-alt" aria-hidden="true"></i> Correct Item Location</h1>
+<p class="help">
+    <i class="bi bi-info-circle" aria-hidden="true"></i>
+    Use this only when the recorded branch is wrong and the item is already at another branch.
+    To physically send an item to another branch, <a asp-controller="Transfers" asp-action="Create" asp-route-itemId="@Model.ItemId">request a transfer</a> instead.
+    A correction is saved in the item's movement history with your reason.
+</p>
+<form method="post" class="form-card">
+    <input asp-for="ItemId" type="hidden" />
+    <div asp-validation-summary="ModelOnly" class="validation"></div>
+    <dl>
+        <dt>Item</dt><dd>@Model.ItemName (@Model.LibraryCode)</dd>
+        <dt>Recorded at</dt><dd>@Model.CurrentBranchName</dd>
+    </dl>
+    <div class="field">
+        <label asp-for="ToBranchId"></label>
+        <select asp-for="ToBranchId">
+            <option value="">Choose branch</option>
+            @foreach (var b in branches)
+            {
+                <option value="@b.Id">@b.Name (@b.Code)</option>
+            }
+        </select>
+        <span asp-validation-for="ToBranchId" class="validation"></span>
+    </div>
+    <div class="field">
+        <label asp-for="Reason"></label>
+        <textarea asp-for="Reason" rows="3" placeholder="e.g. Entered against the wrong branch when catalogued"></textarea>
+        <span asp-validation-for="Reason" class="validation"></span>
+    </div>
+    <div class="button-row">
+        <button class="btn" type="submit"><i class="bi bi-check2" aria-hidden="true"></i> Save correction</button>
+        <a class="btn btn-secondary" asp-action="Details" asp-route-id="@Model.ItemId"><i class="bi bi-arrow-left" aria-hidden="true"></i> Back to Item</a>
+    </div>
+</form>
+</div>

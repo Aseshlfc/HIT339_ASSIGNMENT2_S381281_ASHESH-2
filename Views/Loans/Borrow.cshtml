@@ -5,6 +5,10 @@
 <div class="narrow">
 <h1><i class="bi bi-journal-plus" aria-hidden="true"></i> Borrow Item</h1>
 <p class="help"><i class="bi bi-info-circle" aria-hidden="true"></i> Loan period: @LibraryRules.LoanDays days. Late fine: $@LibraryRules.FinePerLateDay.ToString("0.00") per day.</p>
+@if (ViewBag.StaffBranch is Branch staffBranch)
+{
+    <div class="desk-note"><i class="bi bi-geo-alt-fill" aria-hidden="true"></i> Reception desk: @staffBranch.Name. Only items held at this branch can be lent here.</div>
+}
 <form method="post" class="form-card">
     <div asp-validation-summary="ModelOnly" class="validation"></div>
     <div class="field">

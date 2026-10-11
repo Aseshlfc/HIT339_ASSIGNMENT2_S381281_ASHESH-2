@@ -1,3 +1,4 @@
+using LibraryManagementSystem.Data;
 using LibraryManagementSystem.Models;
 using LibraryManagementSystem.ViewModels;
 using Microsoft.AspNetCore.Authorization;
@@ -12,11 +13,20 @@ public class StaffController : Controller
 {
     private readonly UserManager<ApplicationUser> _userManager;
 
-    public StaffController(UserManager<ApplicationUser> userManager) => _userManager = userManager;
+    // Used only for the branch list. Optional so the controller can still be
+    // constructed with just a UserManager.
+    private readonly LibraryContext? _db;
+
+    public StaffController(UserManager<ApplicationUser> userManager, LibraryContext? db = null)
+    {
+        _userManager = userManager;
+        _db = db;
+    }
 
     public async Task<IActionResult> Index()
     {
         var users = await _userManager.Users.OrderBy(u => u.UserName).ToListAsync();
+        var branchNames = await BranchNamesAsync();
         var rows = new List<StaffListItemViewModel>();
         foreach (var user in users)
         {
@@ -26,6 +36,7 @@ public class StaffController : Controller
                 Id = user.Id,
                 UserName = user.UserName ?? string.Empty,
                 Role = roles.FirstOrDefault() ?? "(none)",
+                BranchName = user.BranchId.HasValue && branchNames.TryGetValue(user.BranchId.Value, out var branchName) ? branchName : null,
                 IsLockedOut = await _userManager.IsLockedOutAsync(user)
             });
         }
@@ -33,7 +44,7 @@ public class StaffController : Controller
     }
 
     [HttpGet]
-    public IActionResult Create() => View("Form", new StaffFormViewModel());
+    public Task<IActionResult> Create() => FormView(new StaffFormViewModel());
 
     [HttpPost]
     [ValidateAntiForgeryToken]
@@ -43,15 +54,16 @@ public class StaffController : Controller
             ModelState.AddModelError(nameof(model.Password), "Password is required when creating an account.");
         if (!StaffRoles.All.Contains(model.Role))
             ModelState.AddModelError(nameof(model.Role), "Choose Admin, Reception or Manager.");
+        await ValidateBranchAsync(model, currentBranchId: null);
 
-        if (!ModelState.IsValid) return View("Form", model);
+        if (!ModelState.IsValid) return await FormView(model);
 
-        var user = new ApplicationUser { UserName = model.UserName };
+        var user = new ApplicationUser { UserName = model.UserName, BranchId = model.BranchId };
         var result = await _userManager.CreateAsync(user, model.Password!);
         if (!result.Succeeded)
         {
             foreach (var error in result.Errors) ModelState.AddModelError(string.Empty, error.Description);
-            return View("Form", model);
+            return await FormView(model);
         }
 
         await _userManager.AddToRoleAsync(user, model.Role);
@@ -64,11 +76,12 @@ public class StaffController : Controller
         var user = await _userManager.FindByIdAsync(id);
         if (user == null) return NotFound();
         var roles = await _userManager.GetRolesAsync(user);
-        return View("Form", new StaffFormViewModel
+        return await FormView(new StaffFormViewModel
         {
             Id = user.Id,
             UserName = user.UserName ?? string.Empty,
-            Role = roles.FirstOrDefault() ?? "Reception"
+            Role = roles.FirstOrDefault() ?? "Reception",
+            BranchId = user.BranchId
         });
     }
 
@@ -88,8 +101,9 @@ public class StaffController : Controller
 
         if (currentRole == "Admin" && model.Role != "Admin" && await IsLastAdminAsync(user))
             ModelState.AddModelError(nameof(model.Role), "Cannot change the role of the last remaining Admin account.");
+        await ValidateBranchAsync(model, currentBranchId: user.BranchId);
 
-        if (!ModelState.IsValid) return View("Form", model);
+        if (!ModelState.IsValid) return await FormView(model);
 
         if (!string.Equals(user.UserName, model.UserName, StringComparison.Ordinal))
         {
@@ -97,7 +111,7 @@ public class StaffController : Controller
             if (!setNameResult.Succeeded)
             {
                 foreach (var error in setNameResult.Errors) ModelState.AddModelError(string.Empty, error.Description);
-                return View("Form", model);
+                return await FormView(model);
             }
         }
 
@@ -108,8 +122,14 @@ public class StaffController : Controller
             if (!resetResult.Succeeded)
             {
                 foreach (var error in resetResult.Errors) ModelState.AddModelError(string.Empty, error.Description);
-                return View("Form", model);
+                return await FormView(model);
             }
+        }
+
+        if (user.BranchId != model.BranchId)
+        {
+            user.BranchId = model.BranchId;
+            await _userManager.UpdateAsync(user);
         }
 
         if (currentRole != model.Role)
@@ -184,6 +204,38 @@ public class StaffController : Controller
 
         await _userManager.DeleteAsync(user);
         return RedirectToAction(nameof(Index));
+    }
+
+    private async Task<IActionResult> FormView(StaffFormViewModel model)
+    {
+        ViewBag.Branches = _db == null
+            ? new List<Branch>()
+            : await _db.Branches.AsNoTracking()
+                .Where(b => b.IsActive || b.Id == model.BranchId)
+                .OrderBy(b => b.Name)
+                .ToListAsync();
+        return View("Form", model);
+    }
+
+    private async Task<Dictionary<int, string>> BranchNamesAsync()
+        => _db == null
+            ? new Dictionary<int, string>()
+            : await _db.Branches.AsNoTracking().ToDictionaryAsync(b => b.Id, b => b.Name);
+
+    private async Task ValidateBranchAsync(StaffFormViewModel model, int? currentBranchId)
+    {
+        if (_db == null) return;
+
+        // A reception desk is always at a branch.
+        if (model.Role == "Reception" && !model.BranchId.HasValue)
+            ModelState.AddModelError(nameof(model.BranchId), "Reception staff must be assigned to a branch.");
+        if (!model.BranchId.HasValue || model.BranchId == currentBranchId) return;
+
+        var branch = await _db.Branches.AsNoTracking().SingleOrDefaultAsync(b => b.Id == model.BranchId);
+        if (branch == null)
+            ModelState.AddModelError(nameof(model.BranchId), "The selected branch was not found.");
+        else if (!branch.IsActive)
+            ModelState.AddModelError(nameof(model.BranchId), $"{branch.Name} is inactive and cannot have staff assigned.");
     }
 
     private async Task<bool> IsLastAdminAsync(ApplicationUser user)

@@ -25,6 +25,9 @@ namespace LibraryManagementSystem.Migrations
                     b.Property<int>("AccessFailedCount")
                         .HasColumnType("INTEGER");
 
+                    b.Property<int?>("BranchId")
+                        .HasColumnType("INTEGER");
+
                     b.Property<string>("ConcurrencyStamp")
                         .IsConcurrencyToken()
                         .HasColumnType("TEXT");
@@ -71,6 +74,8 @@ namespace LibraryManagementSystem.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("BranchId");
+
                     b.HasIndex("NormalizedEmail")
                         .HasDatabaseName("EmailIndex");
 
@@ -112,10 +117,60 @@ namespace LibraryManagementSystem.Migrations
                     b.ToTable("Borrowers");
                 });
 
+            modelBuilder.Entity("LibraryManagementSystem.Models.Branch", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Address")
+                        .IsRequired()
+                        .HasMaxLength(250)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Phone")
+                        .HasMaxLength(30)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Code")
+                        .IsUnique();
+
+                    b.ToTable("Branches");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1,
+                            Address = "1 Library Square, Springfield",
+                            Code = "CEN",
+                            IsActive = true,
+                            Name = "Central Library",
+                            Phone = "0800000001"
+                        });
+                });
+
             modelBuilder.Entity("LibraryManagementSystem.Models.Item", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("BranchId")
                         .HasColumnType("INTEGER");
 
                     b.Property<string>("Description")
@@ -144,6 +199,8 @@ namespace LibraryManagementSystem.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("BranchId");
+
                     b.HasIndex("LibraryCode")
                         .IsUnique();
 
@@ -152,6 +209,71 @@ namespace LibraryManagementSystem.Migrations
                     b.HasDiscriminator<string>("ItemDiscriminator").HasValue("Item");
 
                     b.UseTphMappingStrategy();
+                });
+
+            modelBuilder.Entity("LibraryManagementSystem.Models.ItemTransfer", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime?>("ClosedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ClosedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ClosureNote")
+                        .HasMaxLength(300)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("DispatchedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("DispatchedBy")
+                        .HasMaxLength(256)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("FromBranchId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("ItemId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("Kind")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Reason")
+                        .HasMaxLength(300)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("RequestedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("RequestedBy")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Status")
+                        .IsConcurrencyToken()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("ToBranchId")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FromBranchId");
+
+                    b.HasIndex("ToBranchId");
+
+                    b.HasIndex(new[] { "ItemId" }, "IX_ItemTransfers_OpenItem")
+                        .IsUnique()
+                        .HasFilter("\"Status\" IN (0, 1)");
+
+                    b.ToTable("ItemTransfers");
                 });
 
             modelBuilder.Entity("LibraryManagementSystem.Models.Loan", b =>
@@ -164,6 +286,9 @@ namespace LibraryManagementSystem.Migrations
                         .HasColumnType("TEXT");
 
                     b.Property<int>("BorrowerId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int?>("BranchId")
                         .HasColumnType("INTEGER");
 
                     b.Property<DateTime>("DueDate")
@@ -185,6 +310,8 @@ namespace LibraryManagementSystem.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("BorrowerId");
+
+                    b.HasIndex("BranchId");
 
                     b.HasIndex("ItemId");
 
@@ -385,6 +512,54 @@ namespace LibraryManagementSystem.Migrations
                     b.HasDiscriminator().HasValue("Toy");
                 });
 
+            modelBuilder.Entity("LibraryManagementSystem.Models.ApplicationUser", b =>
+                {
+                    b.HasOne("LibraryManagementSystem.Models.Branch", "Branch")
+                        .WithMany("Staff")
+                        .HasForeignKey("BranchId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Branch");
+                });
+
+            modelBuilder.Entity("LibraryManagementSystem.Models.Item", b =>
+                {
+                    b.HasOne("LibraryManagementSystem.Models.Branch", "Branch")
+                        .WithMany("Items")
+                        .HasForeignKey("BranchId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Branch");
+                });
+
+            modelBuilder.Entity("LibraryManagementSystem.Models.ItemTransfer", b =>
+                {
+                    b.HasOne("LibraryManagementSystem.Models.Branch", "FromBranch")
+                        .WithMany()
+                        .HasForeignKey("FromBranchId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("LibraryManagementSystem.Models.Item", "Item")
+                        .WithMany()
+                        .HasForeignKey("ItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("LibraryManagementSystem.Models.Branch", "ToBranch")
+                        .WithMany()
+                        .HasForeignKey("ToBranchId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("FromBranch");
+
+                    b.Navigation("Item");
+
+                    b.Navigation("ToBranch");
+                });
+
             modelBuilder.Entity("LibraryManagementSystem.Models.Loan", b =>
                 {
                     b.HasOne("LibraryManagementSystem.Models.Borrower", "Borrower")
@@ -393,6 +568,11 @@ namespace LibraryManagementSystem.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("LibraryManagementSystem.Models.Branch", "Branch")
+                        .WithMany()
+                        .HasForeignKey("BranchId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("LibraryManagementSystem.Models.Item", "Item")
                         .WithMany("Loans")
                         .HasForeignKey("ItemId")
@@ -400,6 +580,8 @@ namespace LibraryManagementSystem.Migrations
                         .IsRequired();
 
                     b.Navigation("Borrower");
+
+                    b.Navigation("Branch");
 
                     b.Navigation("Item");
                 });
@@ -458,6 +640,13 @@ namespace LibraryManagementSystem.Migrations
             modelBuilder.Entity("LibraryManagementSystem.Models.Borrower", b =>
                 {
                     b.Navigation("Loans");
+                });
+
+            modelBuilder.Entity("LibraryManagementSystem.Models.Branch", b =>
+                {
+                    b.Navigation("Items");
+
+                    b.Navigation("Staff");
                 });
 
             modelBuilder.Entity("LibraryManagementSystem.Models.Item", b =>

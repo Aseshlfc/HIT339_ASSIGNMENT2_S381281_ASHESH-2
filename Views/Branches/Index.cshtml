@@ -1,0 +1,78 @@
+@model IEnumerable<BranchListItemViewModel>
+@{
+    ViewData["Title"] = "Branches";
+    var isAdmin = User.IsInRole("Admin");
+    var staffBranch = ViewBag.StaffBranch as Branch;
+}
+<div class="page-heading">
+    <div>
+        <h1>Library Branches</h1>
+        <p>Every physical branch, what it holds and who works there.@(isAdmin ? " Admin can add, edit, deactivate and delete branches." : "")</p>
+    </div>
+    @if (isAdmin)
+    {
+        <a class="btn" asp-action="Create"><i class="bi bi-plus-lg" aria-hidden="true"></i> Add Branch</a>
+    }
+</div>
+
+<div class="table-wrap">
+<table>
+    <thead><tr><th>Code</th><th>Branch</th><th>Location</th><th class="num">Items</th><th class="num">Staff</th><th class="num">Open transfers</th><th>Status</th><th>Actions</th></tr></thead>
+    <tbody>
+    @foreach (var row in Model)
+    {
+        var b = row.Branch;
+        <tr>
+            <td><span class="badge">@b.Code</span></td>
+            <td>
+                <a asp-action="Details" asp-route-id="@b.Id"><strong>@b.Name</strong></a>
+                @if (staffBranch?.Id == b.Id)
+                {
+                    <span class="overdue-tag your-branch"><i class="bi bi-geo-alt-fill" aria-hidden="true"></i> Your branch</span>
+                }
+            </td>
+            <td>@b.Address<br /><small>@b.Phone</small></td>
+            <td class="num">@row.ItemCount<br /><small>@row.AvailableCount available</small></td>
+            <td class="num">@row.StaffCount</td>
+            <td class="num">@row.OpenTransferCount</td>
+            <td>
+                @if (b.IsActive)
+                {
+                    <span class="status status-available"><i class="bi bi-check-circle-fill" aria-hidden="true"></i> Active</span>
+                }
+                else
+                {
+                    <span class="status status-damaged"><i class="bi bi-slash-circle" aria-hidden="true"></i> Inactive</span>
+                }
+            </td>
+            <td><div class="actions">
+                <a class="action-btn" asp-action="Details" asp-route-id="@b.Id"><i class="bi bi-box-seam" aria-hidden="true"></i> Inventory</a>
+                @if (isAdmin)
+                {
+                    <a class="action-btn" asp-action="Edit" asp-route-id="@b.Id"><i class="bi bi-pencil-square" aria-hidden="true"></i> Edit</a>
+                    @if (b.Id != Branch.DefaultBranchId)
+                    {
+                        <form asp-action="ToggleActive" asp-route-id="@b.Id" method="post" class="inline-form">
+                            <button type="submit" class="action-btn action-btn-muted">
+                                <i class="bi @(b.IsActive ? "bi-pause-circle" : "bi-play-circle")" aria-hidden="true"></i> @(b.IsActive ? "Deactivate" : "Activate")
+                            </button>
+                        </form>
+                        <a class="action-btn action-btn-danger" asp-action="Delete" asp-route-id="@b.Id"><i class="bi bi-trash3" aria-hidden="true"></i> Delete</a>
+                    }
+                }
+            </div></td>
+        </tr>
+    }
+    @if (!Model.Any())
+    {
+        <tr><td colspan="8">
+            <div class="empty-state">
+                <i class="bi bi-buildings" aria-hidden="true"></i>
+                <strong>No branches yet</strong>
+                Add a branch to start assigning items and staff.
+            </div>
+        </td></tr>
+    }
+    </tbody>
+</table>
+</div>

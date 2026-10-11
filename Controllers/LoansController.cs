@@ -1,5 +1,6 @@
 using LibraryManagementSystem.Data;
 using LibraryManagementSystem.Models;
+using LibraryManagementSystem.Services;
 using LibraryManagementSystem.ViewModels;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -14,19 +15,39 @@ public class LoansController : Controller
     private readonly LibraryContext _db;
     public LoansController(LibraryContext db) => _db = db;
 
-    public async Task<IActionResult> Index()
+    private const string NoDeskMessage = "Your account is not assigned to a branch, so you cannot lend or return items. Ask an Admin to assign your branch.";
+
+    // A Reception account must belong to a branch before it can lend or
+    // accept returns. Having no branch must not mean "no restrictions".
+    private bool IsReceptionWithoutDesk(Branch? desk) => desk == null && User?.IsInRole("Reception") == true;
+
+    public async Task<IActionResult> Index(int? branchId = null)
     {
-        var loans = await _db.Loans
+        var query = _db.Loans
             .Include(l => l.Item)
             .Include(l => l.Borrower)
-            .OrderByDescending(l => l.BorrowedAt)
-            .ToListAsync();
-        return View(loans);
+            .AsQueryable();
+        if (branchId.HasValue) query = query.Where(l => l.BranchId == branchId);
+
+        var branches = await _db.Branches.AsNoTracking().OrderBy(b => b.Name).ToListAsync();
+        ViewBag.Branches = branches;
+        ViewBag.BranchNames = branches.ToDictionary(b => b.Id, b => b.Name);
+        ViewBag.BranchId = branchId;
+        var desk = await _db.GetStaffBranchAsync(User);
+        ViewBag.StaffBranch = desk;
+        ViewBag.NoDesk = IsReceptionWithoutDesk(desk);
+        return View(await query.OrderByDescending(l => l.BorrowedAt).ToListAsync());
     }
 
     [HttpGet]
     public async Task<IActionResult> Borrow(string? code = null)
     {
+        if (IsReceptionWithoutDesk(await _db.GetStaffBranchAsync(User)))
+        {
+            TempData["Error"] = NoDeskMessage;
+            return RedirectToAction(nameof(Index));
+        }
+
         await LoadBorrowers();
         return View(new BorrowViewModel { LibraryCode = code ?? string.Empty });
     }
@@ -35,6 +56,13 @@ public class LoansController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Borrow(BorrowViewModel model)
     {
+        var staffBranch = await _db.GetStaffBranchAsync(User);
+        if (IsReceptionWithoutDesk(staffBranch))
+        {
+            TempData["Error"] = NoDeskMessage;
+            return RedirectToAction(nameof(Index));
+        }
+
         if (!ModelState.IsValid)
         {
             await LoadBorrowers();
@@ -45,7 +73,17 @@ public class LoansController : Controller
         if (item == null)
             ModelState.AddModelError(nameof(model.LibraryCode), "No item was found with this library code.");
         else if (item.Status != ItemStatus.Available)
-            ModelState.AddModelError(nameof(model.LibraryCode), $"This item is currently {item.Status}.");
+            ModelState.AddModelError(nameof(model.LibraryCode), $"This item is currently {item.Status.Label()}.");
+        else
+        {
+            // A reception desk can only lend what is physically at its branch.
+            if (staffBranch != null && item.BranchId != staffBranch.Id)
+            {
+                var heldAt = await _db.Branches.Where(b => b.Id == item.BranchId).Select(b => b.Name).SingleOrDefaultAsync();
+                ModelState.AddModelError(nameof(model.LibraryCode),
+                    $"This item is held at {heldAt ?? "another branch"}, not {staffBranch.Name}. Request an inter-branch transfer first.");
+            }
+        }
 
         var borrowerExists = await _db.Borrowers.AnyAsync(b => b.Id == model.BorrowerId);
         if (!borrowerExists)
@@ -62,6 +100,7 @@ public class LoansController : Controller
         {
             ItemId = item!.Id,
             BorrowerId = model.BorrowerId,
+            BranchId = item.BranchId,
             BorrowedAt = now,
             DueDate = now.Date.AddDays(LibraryRules.LoanDays)
         };
@@ -97,6 +136,14 @@ public class LoansController : Controller
         if (loan == null) return NotFound();
         if (loan.ReturnedAt.HasValue) return RedirectToAction(nameof(Index));
 
+        var desk = await _db.GetStaffBranchAsync(User);
+        if (IsReceptionWithoutDesk(desk))
+        {
+            TempData["Error"] = NoDeskMessage;
+            return RedirectToAction(nameof(Index));
+        }
+        await LoadReturnLocationAsync(loan.Item, desk);
+
         var lateDays = Math.Max(0, (DateTime.Now.Date - loan.DueDate.Date).Days);
         return View(new ReturnViewModel
         {
@@ -118,13 +165,25 @@ public class LoansController : Controller
         {
             ModelState.AddModelError(nameof(model.ReturnStatus), "A returned item cannot remain Borrowed.");
         }
+        else if (model.ReturnStatus == ItemStatus.InTransit)
+        {
+            ModelState.AddModelError(nameof(model.ReturnStatus), "In transit is set by the transfer workflow and cannot be chosen here.");
+        }
 
         var loan = await _db.Loans.Include(l => l.Item).SingleOrDefaultAsync(l => l.Id == model.LoanId);
         if (loan == null) return NotFound();
         if (loan.ReturnedAt.HasValue) return RedirectToAction(nameof(Index));
 
+        var desk = await _db.GetStaffBranchAsync(User);
+        if (IsReceptionWithoutDesk(desk))
+        {
+            TempData["Error"] = NoDeskMessage;
+            return RedirectToAction(nameof(Index));
+        }
+
         if (!ModelState.IsValid)
         {
+            await LoadReturnLocationAsync(loan.Item, desk);
             model.ItemName = loan.Item.Name;
             model.LibraryCode = loan.Item.LibraryCode;
             model.DueDate = loan.DueDate;
@@ -140,8 +199,39 @@ public class LoansController : Controller
         loan.FineAmount = lateDays * LibraryRules.FinePerLateDay;
         loan.Item.Status = model.ReturnStatus;
 
-        await _db.SaveChangesAsync();
+        // Cross-branch return: the item is now physically at the desk that
+        // took it back, so its recorded location follows it, with a movement
+        // record so the change is auditable. The loan's issuing branch is
+        // history and does not change.
+        string? movedMessage = null;
+        if (desk != null && loan.Item.BranchId != desk.Id)
+        {
+            var previous = await _db.Branches.Where(b => b.Id == loan.Item.BranchId).Select(b => b.Name).SingleOrDefaultAsync();
+            await ItemMovements.RecordCrossBranchReturnAsync(_db, loan.Item, desk, User?.Identity?.Name ?? "unknown", loan.Id);
+            movedMessage = $"{loan.Item.Name} was returned at {desk.Name}. Its location has been updated from {previous ?? "its previous branch"} to {desk.Name}.";
+        }
+
+        try
+        {
+            await _db.SaveChangesAsync();
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            // Item.Status is a concurrency token: someone changed this item
+            // between loading the loan and saving the return.
+            TempData["Error"] = "This item was changed by someone else just now. The return was not saved; please try again.";
+            return RedirectToAction(nameof(Index));
+        }
+
+        if (movedMessage != null) TempData["Success"] = movedMessage;
         return RedirectToAction(nameof(Index));
+    }
+
+    private async Task LoadReturnLocationAsync(Item item, Branch? desk)
+    {
+        ViewBag.StaffBranch = desk;
+        ViewBag.ItemBranchName = await _db.Branches.Where(b => b.Id == item.BranchId).Select(b => b.Name).SingleOrDefaultAsync();
+        ViewBag.IsCrossBranchReturn = desk != null && desk.Id != item.BranchId;
     }
 
     [HttpPost]
@@ -159,5 +249,6 @@ public class LoansController : Controller
     {
         var borrowers = await _db.Borrowers.AsNoTracking().OrderBy(b => b.FullName).ToListAsync();
         ViewBag.Borrowers = new SelectList(borrowers, "Id", "FullName");
+        ViewBag.StaffBranch = await _db.GetStaffBranchAsync(User);
     }
 }

@@ -7,7 +7,10 @@ public enum ItemStatus
     Available,
     Borrowed,
     Damaged,
-    Destroy
+    Destroy,
+    // Appended last so the integer values already stored for the other
+    // statuses are unchanged. Set only by the inter-branch transfer workflow.
+    InTransit
 }
 
 public abstract class Item
@@ -28,6 +31,10 @@ public abstract class Item
 
     [Required]
     public ItemStatus Status { get; set; } = ItemStatus.Available;
+
+    // The physical branch that currently holds this item.
+    public int BranchId { get; set; } = Branch.DefaultBranchId;
+    public Branch? Branch { get; set; }
 
     public ICollection<Loan> Loans { get; set; } = new List<Loan>();
 

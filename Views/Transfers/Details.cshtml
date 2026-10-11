@@ -1,0 +1,106 @@
+@model TransferRowViewModel
+@{
+    var t = Model.Transfer;
+    var isTransfer = t.Kind == TransferKind.Transfer;
+    var heading = isTransfer ? "Transfer" : "Movement";
+    ViewData["Title"] = $"{heading} #{t.Id}";
+}
+<div class="narrow wide-form">
+<div class="page-heading">
+    <div>
+        <h1><i class="bi bi-truck" aria-hidden="true"></i> @heading #@t.Id <span class="status transfer-@t.Status.ToString().ToLowerInvariant()">@t.Status.Label()</span></h1>
+        <p><span class="route">@t.FromBranch.Name <i class="bi bi-arrow-right" aria-hidden="true"></i> @t.ToBranch.Name</span></p>
+    </div>
+    <a class="btn btn-secondary" asp-action="Index"><i class="bi bi-arrow-left" aria-hidden="true"></i> Back to Transfers</a>
+</div>
+
+<div class="form-card">
+    <dl>
+        <dt>Type</dt><dd>@t.Kind.Label()</dd>
+        <dt>Item</dt><dd>@t.Item.Name (@t.Item.LibraryCode) &middot; @t.Item.ItemType</dd>
+        <dt>Item status</dt><dd><span class="status status-@t.Item.Status.ToString().ToLowerInvariant()">@t.Item.Status.Label()</span></dd>
+        <dt>Source branch</dt><dd>@t.FromBranch.Name (@t.FromBranch.Code)</dd>
+        <dt>Destination branch</dt><dd>@t.ToBranch.Name (@t.ToBranch.Code)</dd>
+        <dt>Reason / notes</dt><dd>@(string.IsNullOrEmpty(t.Reason) ? "—" : t.Reason)</dd>
+    </dl>
+
+    @if (!isTransfer)
+    {
+        <ol class="timeline">
+            <li class="done"><strong>@(t.Kind == TransferKind.Correction ? "Location corrected by an Admin" : $"Returned by a borrower at {t.ToBranch.Name}")</strong> @t.RequestedAt.ToString("dd MMM yyyy, HH:mm") by @t.RequestedBy</li>
+        </ol>
+        <p class="help"><i class="bi bi-info-circle" aria-hidden="true"></i> This is a record of a change of location, not a shipment between branches.</p>
+    }
+    else
+    {
+    <ol class="timeline">
+        <li class="done"><strong>Requested</strong> @t.RequestedAt.ToString("dd MMM yyyy, HH:mm") by @t.RequestedBy</li>
+        @if (t.DispatchedAt.HasValue)
+        {
+            <li class="done"><strong>Dispatched from @t.FromBranch.Name</strong> @t.DispatchedAt.Value.ToString("dd MMM yyyy, HH:mm") by @t.DispatchedBy</li>
+        }
+        else if (t.Status == TransferStatus.Requested)
+        {
+            <li><strong>Waiting for @t.FromBranch.Name to dispatch</strong> The item stays on the shelf and can still be borrowed until it is dispatched.</li>
+        }
+        @if (t.Status == TransferStatus.InTransit)
+        {
+            <li><strong>Waiting for @t.ToBranch.Name to receive</strong> The item is in transit and cannot be borrowed.</li>
+        }
+        @if (t.ClosedAt.HasValue)
+        {
+            <li class="done @(t.Status == TransferStatus.Completed ? "" : "stopped")">
+                <strong>@(t.Status == TransferStatus.Completed ? $"Received at {t.ToBranch.Name}" : t.Status.Label())</strong>
+                @t.ClosedAt.Value.ToString("dd MMM yyyy, HH:mm") by @t.ClosedBy
+                @if (!string.IsNullOrEmpty(t.ClosureNote)) { <span>&mdash; @t.ClosureNote</span> }
+            </li>
+        }
+    </ol>
+    }
+
+    @if (Model.HasActions)
+    {
+        <div class="transfer-actions">
+            @if (Model.CanDispatch)
+            {
+                <form asp-action="Dispatch" asp-route-id="@t.Id" method="post" class="inline-form">
+                    <button type="submit" class="btn"><i class="bi bi-send" aria-hidden="true"></i> Dispatch from @t.FromBranch.Name</button>
+                </form>
+            }
+            @if (Model.CanReceive)
+            {
+                <form asp-action="Receive" asp-route-id="@t.Id" method="post" class="inline-form">
+                    <button type="submit" class="btn"><i class="bi bi-box-arrow-in-down" aria-hidden="true"></i> Receive at @t.ToBranch.Name</button>
+                </form>
+            }
+        </div>
+        @if (Model.CanReject || Model.CanCancel)
+        {
+            <form method="post" class="close-form">
+                <div class="field">
+                    <label for="note">Note (optional)</label>
+                    <input id="note" name="note" maxlength="300" placeholder="Why is this transfer being stopped?" />
+                </div>
+                <div class="button-row">
+                    @if (Model.CanReject)
+                    {
+                        <button type="submit" asp-action="Reject" asp-route-id="@t.Id" class="btn btn-danger"><i class="bi bi-x-circle" aria-hidden="true"></i> Reject</button>
+                    }
+                    @if (Model.CanCancel)
+                    {
+                        <button type="submit" asp-action="Cancel" asp-route-id="@t.Id" class="btn btn-secondary"><i class="bi bi-slash-circle" aria-hidden="true"></i> Cancel transfer</button>
+                    }
+                </div>
+                @if (t.Status == TransferStatus.InTransit)
+                {
+                    <p class="help">Cancelling an in-transit transfer returns the item to @t.FromBranch.Name as Available.</p>
+                }
+            </form>
+        }
+    }
+    else if (t.IsOpen)
+    {
+        <p class="help"><i class="bi bi-info-circle" aria-hidden="true"></i> The next step is for staff at @(t.Status == TransferStatus.Requested ? t.FromBranch.Name : t.ToBranch.Name).</p>
+    }
+</div>
+</div>
