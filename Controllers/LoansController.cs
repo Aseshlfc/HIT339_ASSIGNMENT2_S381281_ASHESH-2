@@ -13,7 +13,13 @@ namespace LibraryManagementSystem.Controllers;
 public class LoansController : Controller
 {
     private readonly LibraryContext _db;
-    public LoansController(LibraryContext db) => _db = db;
+    private readonly INotificationService _notifications;
+
+    public LoansController(LibraryContext db, INotificationService notifications)
+    {
+        _db = db;
+        _notifications = notifications;
+    }
 
     private const string NoDeskMessage = "Your account is not assigned to a branch, so you cannot lend or return items. Ask an Admin to assign your branch.";
 
@@ -47,7 +53,6 @@ public class LoansController : Controller
             TempData["Error"] = NoDeskMessage;
             return RedirectToAction(nameof(Index));
         }
-
         await LoadBorrowers();
         return View(new BorrowViewModel { LibraryCode = code ?? string.Empty });
     }
@@ -122,7 +127,11 @@ public class LoansController : Controller
             return View(model);
         }
 
+        // Simulated notification: tell the borrower what they borrowed and when it is due.
+        await _notifications.SendAsync(model.BorrowerId, NotificationType.Borrowed,
+            $"You borrowed {item!.Name} ({item.LibraryCode}). It is due back on {loan.DueDate:dd MMM yyyy}.");
         return RedirectToAction(nameof(Index));
+
     }
 
     [HttpGet]
@@ -223,6 +232,12 @@ public class LoansController : Controller
             return RedirectToAction(nameof(Index));
         }
 
+        // Simulated notification: only sent when the return created a late fine.
+        if (loan.FineAmount > 0)
+        {
+            await _notifications.SendAsync(loan.BorrowerId, NotificationType.FineIssued,
+                $"A late fine of ${loan.FineAmount:0.00} was added for {loan.Item.Name}, which was due on {loan.DueDate:dd MMM yyyy}.");
+        }
         if (movedMessage != null) TempData["Success"] = movedMessage;
         return RedirectToAction(nameof(Index));
     }

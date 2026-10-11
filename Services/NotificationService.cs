@@ -8,8 +8,7 @@ namespace LibraryManagementSystem.Services;
 /// </summary>
 public interface INotificationService
 {
-    Task SendAsync(int borrowerId, NotificationType type, string message,
-                   NotificationChannel channel = NotificationChannel.Email);
+    Task SendAsync(int borrowerId, NotificationType type, string message);
 }
 
 public class NotificationService : INotificationService
@@ -23,22 +22,37 @@ public class NotificationService : INotificationService
         _logger = logger;
     }
 
-    public async Task SendAsync(int borrowerId, NotificationType type, string message,
-                                NotificationChannel channel = NotificationChannel.Email)
+    public async Task SendAsync(int borrowerId, NotificationType type, string message)
     {
-        var notification = new Notification
+        var borrower = await _context.Borrowers.FindAsync(borrowerId);
+        if (borrower == null)
+        {
+            _logger.LogWarning("Notification skipped: borrower {BorrowerId} not found.", borrowerId);
+            return;
+        }
+
+        // Prefer email; fall back to SMS; skip if the borrower has no contact details.
+        NotificationChannel channel;
+        if (!string.IsNullOrWhiteSpace(borrower.Email))
+            channel = NotificationChannel.Email;
+        else if (!string.IsNullOrWhiteSpace(borrower.Phone))
+            channel = NotificationChannel.Sms;
+        else
+        {
+            _logger.LogWarning("Notification skipped: {Name} has no email or phone.", borrower.FullName);
+            return;
+        }
+
+        _context.Notifications.Add(new Notification
         {
             BorrowerId = borrowerId,
             Type = type,
             Channel = channel,
             Message = message
-        };
-
-        _context.Notifications.Add(notification);
+        });
         await _context.SaveChangesAsync();
 
         // Simulated sending: write to the console instead of a real email/SMS.
-        _logger.LogInformation("[{Channel}] to borrower {BorrowerId}: {Message}",
-                               channel, borrowerId, message);
+        _logger.LogInformation("[{Channel}] to {Name}: {Message}", channel, borrower.FullName, message);
     }
 }
