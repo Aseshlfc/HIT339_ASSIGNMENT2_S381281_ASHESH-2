@@ -102,7 +102,7 @@ public class BaselineRegressionTests
         var loan = new Loan { ItemId = book.Id, BorrowerId = borrower.Id, BorrowedAt = DateTime.Now.AddDays(-21), DueDate = DateTime.Now.Date.AddDays(-7) };
         db.Loans.Add(loan);
         await db.SaveChangesAsync();
-        var controller = new LoansController(db);
+        var controller = LoansControllerFactory.Create(db);
 
         await controller.Return(new ReturnViewModel { LoanId = loan.Id, ReturnStatus = ItemStatus.Available });
         Assert.Equal(7.00m, loan.FineAmount);
