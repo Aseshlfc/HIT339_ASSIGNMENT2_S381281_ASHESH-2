@@ -14,11 +14,13 @@ public class LoansController : Controller
 {
     private readonly LibraryContext _db;
     private readonly INotificationService _notifications;
+    private readonly IReservationService _reservations;
 
-    public LoansController(LibraryContext db, INotificationService notifications)
+    public LoansController(LibraryContext db, INotificationService notifications, IReservationService reservations)
     {
         _db = db;
         _notifications = notifications;
+        _reservations = reservations;
     }
 
     private const string NoDeskMessage = "Your account is not assigned to a branch, so you cannot lend or return items. Ask an Admin to assign your branch.";
@@ -238,6 +240,8 @@ public class LoansController : Controller
             await _notifications.SendAsync(loan.BorrowerId, NotificationType.FineIssued,
                 $"A late fine of ${loan.FineAmount:0.00} was added for {loan.Item.Name}, which was due on {loan.DueDate:dd MMM yyyy}.");
         }
+        // If the item is Available again, offer it to the first borrower waiting in the queue.
+        await _reservations.NotifyNextInQueueAsync(loan.Item);
         if (movedMessage != null) TempData["Success"] = movedMessage;
         return RedirectToAction(nameof(Index));
     }

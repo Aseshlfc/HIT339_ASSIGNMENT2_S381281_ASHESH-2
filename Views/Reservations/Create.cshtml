@@ -1,0 +1,25 @@
+﻿@model ReserveViewModel
+@{
+    ViewData["Title"] = "Place Hold";
+}
+<div class="narrow">
+    <h1><i class="bi bi-bookmark-plus" aria-hidden="true"></i> Place Hold</h1>
+    <p class="help"><i class="bi bi-info-circle" aria-hidden="true"></i> Holds can only be placed on borrowed or damaged items. The first borrower in the queue is notified when the item is available again.</p>
+    <form method="post" class="form-card">
+        <div asp-validation-summary="ModelOnly" class="validation"></div>
+        <div class="field">
+            <label asp-for="LibraryCode"></label>
+            <div class="input-icon-wrap">
+                <i class="bi bi-upc-scan" aria-hidden="true"></i>
+                <input asp-for="LibraryCode" autofocus placeholder="e.g. B002" />
+            </div>
+            <span asp-validation-for="LibraryCode" class="validation"></span>
+        </div>
+        <div class="field"><label asp-for="BorrowerId"></label><select asp-for="BorrowerId" asp-items="ViewBag.Borrowers"><option value="0">Choose borrower</option></select><span asp-validation-for="BorrowerId" class="validation"></span></div>
+        <p class="help">Need a new borrower? <a asp-controller="Borrowers" asp-action="Create">Add borrower first</a>.</p>
+        <div class="button-row">
+            <button class="btn" type="submit"><i class="bi bi-bookmark-check" aria-hidden="true"></i> Place hold</button>
+            <a class="btn btn-secondary" asp-action="Index"><i class="bi bi-arrow-left" aria-hidden="true"></i> Back to Reservations</a>
+        </div>
+    </form>
+</div>
