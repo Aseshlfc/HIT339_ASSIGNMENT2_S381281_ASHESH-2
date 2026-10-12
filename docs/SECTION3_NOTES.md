@@ -19,3 +19,6 @@
 - Tested the five hold cases manually and saved screenshots 01 to 08 in docs/screenshots.
 - Changing the LoansController constructor broke 26 call sites in Ashesh's test project. Fixed by adding Tests/LoansControllerFactory.cs, which builds the controller with the real NotificationService and ReservationService, and swapping every call to use it. Why: the existing tests keep exercising the real code path, and no test was removed or weakened.
 - Test run after the change: 162 of 163 pass. The one failure (Borrow_ConcurrentAttemptsForSameItem_OnlyOneSucceeds) also fails on a clean copy of main on Windows, because the test cannot delete its temporary SQLite file at cleanup. It was reported to Ashesh and is not caused by Section 3.
+
+## 2026-10-13
+- Tested Stage 7 manually: returning B002 as Available turned the first Waiting hold to Ready and created a ReservationReady notification; the next hold moved up to position 1.
