@@ -164,7 +164,14 @@ public class LoansControllerTests
         // mechanism (Item.Status configured as a concurrency token in
         // LibraryContext, see LibraryContext.OnModelCreating).
         var dbPath = Path.Combine(Path.GetTempPath(), $"concurrency-test-{Guid.NewGuid():N}.db");
-        var connectionString = $"Data Source={dbPath}";
+        // Pooling=False: Microsoft.Data.Sqlite pools connections by default, so
+        // disposing a DbContext hands its connection back to the pool with the
+        // file still open. Windows refuses to delete an open file, which made
+        // the cleanup below throw IOException there (macOS and Linux allow
+        // it). Without pooling, the file is closed as soon as each context is
+        // disposed. This does not change what the test checks: the two
+        // requests still use separate connections to the same database file.
+        var connectionString = $"Data Source={dbPath};Pooling=False";
 
         static LibraryContext OpenSqlite(string cs) =>
             new(new DbContextOptionsBuilder<LibraryContext>().UseSqlite(cs).Options);
@@ -215,10 +222,19 @@ public class LoansControllerTests
         }
         finally
         {
+            // Removing the temporary file is housekeeping, not part of what is
+            // being tested. If the operating system still has it locked, leave
+            // it in the temp folder rather than throw: an exception from this
+            // finally block would replace, and so hide, a failed assertion above.
             foreach (var suffix in new[] { "", "-shm", "-wal" })
             {
                 var path = dbPath + suffix;
-                if (File.Exists(path)) File.Delete(path);
+                try
+                {
+                    if (File.Exists(path)) File.Delete(path);
+                }
+                catch (IOException) { }
+                catch (UnauthorizedAccessException) { }
             }
         }
     }
