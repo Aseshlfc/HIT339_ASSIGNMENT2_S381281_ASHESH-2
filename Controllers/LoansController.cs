@@ -96,6 +96,17 @@ public class LoansController : Controller
         if (!borrowerExists)
             ModelState.AddModelError(nameof(model.BorrowerId), "Borrower was not found.");
 
+        // A Ready hold means the item is being kept for the first borrower in the queue.
+        Reservation? readyHold = null;
+        if (item != null && item.Status == ItemStatus.Available)
+        {
+            readyHold = await _db.Reservations
+                .FirstOrDefaultAsync(r => r.ItemId == item.Id && r.Status == ReservationStatus.Ready);
+            if (readyHold != null && readyHold.BorrowerId != model.BorrowerId)
+                ModelState.AddModelError(nameof(model.LibraryCode),
+                    "This item is being held for another borrower who reserved it.");
+        }
+
         if (!ModelState.IsValid)
         {
             await LoadBorrowers();
@@ -114,6 +125,7 @@ public class LoansController : Controller
 
         item.Status = ItemStatus.Borrowed;
         _db.Loans.Add(loan);
+        if (readyHold != null) readyHold.Status = ReservationStatus.Fulfilled;
 
         try
         {
