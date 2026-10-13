@@ -619,3 +619,11 @@ th.num, td.num { white-space: nowrap; }
   .credential-row { flex-wrap: wrap; }
   .pill-row .pill { flex: 0 1 auto; }
 }
+
+/* Section 2: CSV import results */
+.import-tag { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 0.8rem; font-weight: 700; }
+.import-tag.import-ok { background: var(--success-bg); color: var(--success); }
+.import-tag.import-ready { background: var(--accent-tint); color: var(--warning); }
+.import-tag.import-bad { background: var(--danger-bg); color: var(--danger); }
+tr.import-bad td { background: #fdf6f5; }
+.import-messages { margin: 0; padding-left: 18px; color: var(--danger); }

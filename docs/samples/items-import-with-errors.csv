@@ -1,0 +1,11 @@
+Type,Name,Description,LibraryCode,BranchCode,Status,Author,Genre,PublicationYear,Artist,ReleaseYear,ToyType,MinimumAge,Manufacturer
+Book,Emma,A comedy of matchmaking and mistakes.,B201,CEN,Available,Jane Austen,Romance,1815,,,,,
+Book,Untitled Draft,A book with no author or genre.,B202,CEN,Available,,,,,,,,
+Music,Blue,A confessional singer-songwriter album.,M201,NTH,Available,,Folk,,Joni Mitchell,1971,,,
+Music,Duplicate Code,Uses a library code that appears earlier in the file.,M201,NTH,Available,,Pop,,Some Artist,2001,,,
+Toy,Puzzle Cube,A twisty puzzle.,B001,CEN,Available,,,,,,Puzzle,8,Cube Co
+Toy,Space Rocket,Age limit is out of range.,T201,CEN,Available,,,,,,Construction,40,Rocket Co
+DVD,Documentary,Not one of the three supported types.,X201,CEN,Available,,,,,,,,
+Book,Lost Branch,Branch code does not exist.,B203,ZZZ,Available,Some Author,Mystery,2010,,,,,
+Book,Destroyed Copy,Status is not allowed in an import.,B204,CEN,Destroy,Some Author,Mystery,2012,,,,,
+Book,Bad Year,Year is not a number.,B205,CEN,Available,Some Author,Mystery,twenty,,,,,

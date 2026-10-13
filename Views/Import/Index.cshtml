@@ -1,0 +1,134 @@
+@model ImportPageViewModel
+@using LibraryManagementSystem.Services
+@{
+    ViewData["Title"] = "Import Items";
+    var report = Model.Report;
+
+    static string RowClass(ImportRowStatus s) => s switch
+    {
+        ImportRowStatus.Imported => "import-ok",
+        ImportRowStatus.ReadyToImport => "import-ready",
+        _ => "import-bad"
+    };
+    static string RowLabel(ImportRowStatus s) => s switch
+    {
+        ImportRowStatus.Imported => "Imported",
+        ImportRowStatus.ReadyToImport => "Valid",
+        _ => "Problem"
+    };
+}
+<div class="page-heading">
+    <div>
+        <h1><i class="bi bi-file-earmark-arrow-up" aria-hidden="true"></i> Import Items from CSV</h1>
+        <p>Admins can add many books, music items and toys at once.</p>
+    </div>
+    <a class="btn btn-secondary" asp-action="Template"><i class="bi bi-download" aria-hidden="true"></i> Download template</a>
+</div>
+
+<form method="post" enctype="multipart/form-data" class="form-card">
+    <div asp-validation-summary="ModelOnly" class="validation"></div>
+    <div class="field">
+        <label for="csvFile">CSV file</label>
+        <input id="csvFile" name="csvFile" type="file" accept=".csv,text/csv" />
+        <span class="field-hint">Up to @(ItemImportService.MaxBytes / 1024 / 1024) MB and @ItemImportService.MaxRows rows. Save from Excel as &quot;CSV UTF-8&quot;.</span>
+        <span asp-validation-for="FileName" class="validation"></span>
+        @if (ViewData.ModelState["csvFile"]?.Errors.Count > 0)
+        {
+            <span class="validation">@ViewData.ModelState["csvFile"]!.Errors[0].ErrorMessage</span>
+        }
+    </div>
+    <label class="check-row">
+        <input type="checkbox" name="validateOnly" value="true" @(Model.ValidateOnly ? "checked" : null) />
+        Check the file only (nothing is saved)
+    </label>
+    <label class="check-row">
+        <input type="checkbox" name="stopOnAnyError" value="true" @(Model.StopOnAnyError ? "checked" : null) />
+        Import nothing if any row has a problem
+    </label>
+    <div class="button-row">
+        <button class="btn" type="submit"><i class="bi bi-upload" aria-hidden="true"></i> Upload</button>
+    </div>
+</form>
+
+@if (report == null)
+{
+    <div class="section-block">
+        <h2><i class="bi bi-info-circle" aria-hidden="true"></i> File layout</h2>
+        <p class="help">The first row must be a header. Column names ignore capitals and spaces.</p>
+        <div class="table-wrap">
+            <table>
+                <thead><tr><th>Column</th><th>Needed for</th><th>Notes</th></tr></thead>
+                <tbody>
+                    <tr><td>Type</td><td>All</td><td>Book, Music or Toy</td></tr>
+                    <tr><td>Name, Description, LibraryCode</td><td>All</td><td>LibraryCode must be new (not already in the catalogue or earlier in the file)</td></tr>
+                    <tr><td>BranchCode</td><td>Optional</td><td>An active branch, such as CEN. Blank means the default branch</td></tr>
+                    <tr><td>Status</td><td>Optional</td><td>Available (default) or Damaged</td></tr>
+                    <tr><td>Author, Genre, PublicationYear</td><td>Books</td><td>Author and Genre required; year optional</td></tr>
+                    <tr><td>Artist, Genre, ReleaseYear</td><td>Music</td><td>Artist required; genre and year optional</td></tr>
+                    <tr><td>ToyType, MinimumAge, Manufacturer</td><td>Toys</td><td>ToyType required; age 0-18 (blank means 0)</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+}
+else
+{
+    <div class="section-block">
+        <h2><i class="bi bi-clipboard-check" aria-hidden="true"></i> Result@(Model.FileName != null ? " for " + Model.FileName : "")</h2>
+
+        @if (report.FileError != null)
+        {
+            <div class="alert alert-error"><i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i> @report.FileError</div>
+        }
+        else
+        {
+            @if (report.ValidateOnly)
+            {
+                <div class="alert alert-success"><i class="bi bi-eye" aria-hidden="true"></i> Check only: nothing was saved.</div>
+            }
+            @if (report.NotImportedReason != null)
+            {
+                <div class="alert alert-error"><i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i> @report.NotImportedReason</div>
+            }
+            @foreach (var warning in report.Warnings)
+            {
+                <div class="alert"><i class="bi bi-info-circle" aria-hidden="true"></i> @warning</div>
+            }
+
+            <div class="stats-grid">
+                <div class="stat-card"><span>Rows in file</span><strong>@report.TotalRows</strong></div>
+                @if (report.ValidateOnly || report.NotImportedReason != null)
+                {
+                    <div class="stat-card"><span>Valid</span><strong>@report.ReadyCount</strong></div>
+                }
+                else
+                {
+                    <div class="stat-card"><span>Imported</span><strong>@report.ImportedCount</strong></div>
+                }
+                <div class="stat-card @(report.InvalidCount > 0 ? "stat-warn" : "")"><span>With problems</span><strong>@report.InvalidCount</strong></div>
+            </div>
+
+            <div class="table-wrap">
+                <table>
+                    <thead><tr><th class="num">Line</th><th>Result</th><th>Type</th><th>Code</th><th>Name</th><th>Feedback</th></tr></thead>
+                    <tbody>
+                    @foreach (var row in report.Rows)
+                    {
+                        <tr class="@RowClass(row.Status)">
+                            <td class="num">@row.Line</td>
+                            <td><span class="import-tag @RowClass(row.Status)">@RowLabel(row.Status)</span></td>
+                            <td>@row.Type</td>
+                            <td>@row.LibraryCode</td>
+                            <td>@row.Name</td>
+                            <td>
+                                @if (row.Messages.Count == 0) { <span>OK</span> }
+                                else { <ul class="import-messages">@foreach (var m in row.Messages) { <li>@m</li> }</ul> }
+                            </td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+}

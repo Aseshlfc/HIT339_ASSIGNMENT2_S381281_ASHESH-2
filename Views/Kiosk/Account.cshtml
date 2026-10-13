@@ -1,0 +1,166 @@
+@model KioskAccountViewModel
+@{
+    var account = Model.Account;
+    var firstName = account.Patron.FullName.Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? account.Patron.FullName;
+    ViewData["Title"] = "Your account";
+    ViewData["KioskBranchName"] = Model.Branch.Name;
+    Layout = "_KioskLayout";
+
+    static string TypeIcon(string type) => type switch
+    {
+        "Book" => "bi-book",
+        "Music" => "bi-disc",
+        "Toy" => "bi-puzzle",
+        _ => "bi-bookmark"
+    };
+}
+<section class="kiosk-panel kiosk-account" data-idle-seconds="60" data-idle-url="@Url.Action("Welcome", new { branchCode = Model.Branch.Code })">
+    <div class="kiosk-hello">
+        <h1>Hello, @firstName</h1>
+        <span class="kiosk-card-tag"><i class="bi bi-credit-card-2-front" aria-hidden="true"></i> Card @account.CardNumber</span>
+    </div>
+
+    @if (Model.Message != null)
+    {
+        <div class="kiosk-message @(Model.MessageIsError ? "kiosk-error" : "kiosk-success")" role="alert">
+            <i class="bi @(Model.MessageIsError ? "bi-exclamation-triangle-fill" : "bi-check-circle-fill")" aria-hidden="true"></i> @Model.Message
+        </div>
+    }
+
+    <div class="kiosk-card">
+        <h2><i class="bi bi-box-arrow-in-right" aria-hidden="true"></i> Borrow an item</h2>
+        <form method="post" asp-action="Checkout" asp-route-branchCode="@Model.Branch.Code" class="kiosk-form">
+            <input type="hidden" name="CardNumber" value="@account.CardNumber" />
+            <label for="LibraryCode" class="kiosk-label">Scan or type the library code on the item</label>
+            <div class="kiosk-input-row">
+                <i class="bi bi-upc-scan" aria-hidden="true"></i>
+                <input id="LibraryCode" name="LibraryCode" value="@Model.LibraryCode" autofocus autocomplete="off"
+                       autocapitalize="characters" spellcheck="false" enterkeyhint="go" placeholder="e.g. B001" />
+            </div>
+            <button type="submit" class="kiosk-btn"><i class="bi bi-journal-check" aria-hidden="true"></i> Borrow</button>
+        </form>
+        <p class="kiosk-hint">Loans last @LibraryRules.LoanDays days. Late items cost $@LibraryRules.FinePerLateDay.ToString("0.00") per day. Only items held at @Model.Branch.Name can be borrowed here.</p>
+    </div>
+
+    <div class="kiosk-card">
+        <h2><i class="bi bi-journal-bookmark" aria-hidden="true"></i> Your loans (@account.ActiveLoans.Count)</h2>
+        @if (account.ActiveLoans.Count == 0)
+        {
+            <p class="kiosk-empty">You have nothing on loan.</p>
+        }
+        else
+        {
+            <ul class="kiosk-list">
+                @foreach (var loan in account.ActiveLoans)
+                {
+                    <li class="@(loan.IsOverdue ? "kiosk-overdue" : "")">
+                        <span class="kiosk-list-icon"><i class="bi @TypeIcon(loan.ItemType)" aria-hidden="true"></i></span>
+                        <span class="kiosk-list-main">
+                            <strong>@loan.ItemName</strong>
+                            <small>@loan.LibraryCode</small>
+                        </span>
+                        <span class="kiosk-list-side">
+                            @if (loan.IsOverdue)
+                            {
+                                <span class="kiosk-tag kiosk-tag-bad">@loan.DaysOverdue day@(loan.DaysOverdue == 1 ? "" : "s") overdue</span>
+                                <small>Fine so far $@loan.EstimatedFine.ToString("0.00")</small>
+                            }
+                            else
+                            {
+                                <span class="kiosk-tag">Due @loan.DueDate.ToString("ddd d MMM")</span>
+                            }
+                        </span>
+                    </li>
+                }
+            </ul>
+        }
+    </div>
+
+    <div class="kiosk-card">
+        <h2><i class="bi bi-cash-coin" aria-hidden="true"></i> Fines</h2>
+        @if (account.UnpaidFines.Count == 0 && account.AccruingFineTotal == 0)
+        {
+            <p class="kiosk-empty">You do not owe any fines.</p>
+        }
+        else
+        {
+            @if (account.UnpaidFines.Count > 0)
+            {
+                <p class="kiosk-fine-total">$@account.UnpaidFineTotal.ToString("0.00") <span>to pay at the reception desk</span></p>
+                <ul class="kiosk-list">
+                    @foreach (var fine in account.UnpaidFines)
+                    {
+                        <li>
+                            <span class="kiosk-list-main"><strong>@fine.ItemName</strong><small>Returned @fine.ReturnedAt.ToString("d MMM yyyy")</small></span>
+                            <span class="kiosk-list-side"><span class="kiosk-tag kiosk-tag-bad">$@fine.Amount.ToString("0.00")</span></span>
+                        </li>
+                    }
+                </ul>
+            }
+            @if (account.AccruingFineTotal > 0)
+            {
+                <p class="kiosk-hint">Overdue items are still adding fines: $@account.AccruingFineTotal.ToString("0.00") so far. Return them to stop the fine growing.</p>
+            }
+        }
+    </div>
+
+    @if (account.Holds.Count > 0)
+    {
+        <div class="kiosk-card">
+            <h2><i class="bi bi-bookmark-star" aria-hidden="true"></i> Your reservations</h2>
+            <ul class="kiosk-list">
+                @foreach (var hold in account.Holds)
+                {
+                    <li>
+                        <span class="kiosk-list-main"><strong>@hold.ItemName</strong><small>@hold.LibraryCode</small></span>
+                        <span class="kiosk-list-side">
+                            @if (hold.Status == ReservationStatus.Ready)
+                            {
+                                <span class="kiosk-tag kiosk-tag-good">Ready to borrow</span>
+                                @if (hold.CollectBy.HasValue)
+                                {
+                                    <small>Collect by @hold.CollectBy.Value.ToLocalTime().ToString("ddd d MMM")</small>
+                                }
+                            }
+                            else
+                            {
+                                <span class="kiosk-tag">Waiting, place @hold.QueuePosition</span>
+                            }
+                        </span>
+                    </li>
+                }
+            </ul>
+        </div>
+    }
+
+    <div class="kiosk-done">
+        <a class="kiosk-btn kiosk-btn-secondary" asp-action="Welcome" asp-route-branchCode="@Model.Branch.Code">
+            <i class="bi bi-box-arrow-right" aria-hidden="true"></i> Finish and sign out
+        </a>
+        <span class="kiosk-idle" id="kioskIdle" aria-live="polite"></span>
+    </div>
+</section>
+
+@section Scripts {
+<script>
+    // Signs the patron out after a minute without touching the screen, so the
+    // next person never sees the previous person's account.
+    (function () {
+        const panel = document.querySelector('[data-idle-seconds]');
+        if (!panel) return;
+        const limit = parseInt(panel.dataset.idleSeconds, 10);
+        const url = panel.dataset.idleUrl;
+        const label = document.getElementById('kioskIdle');
+        let left = limit;
+        function show() { label.textContent = left <= 15 ? 'Signing out in ' + left + ' seconds' : ''; }
+        ['pointerdown', 'keydown', 'touchstart'].forEach(function (ev) {
+            document.addEventListener(ev, function () { left = limit; show(); }, { passive: true });
+        });
+        setInterval(function () {
+            left -= 1;
+            show();
+            if (left <= 0) window.location.href = url;
+        }, 1000);
+    })();
+</script>
+}

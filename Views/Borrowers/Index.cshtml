@@ -8,12 +8,12 @@
 </div>
 <div class="table-wrap">
 <table>
-    <thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Address</th><th>Actions</th></tr></thead>
+    <thead><tr><th>Card number</th><th>Name</th><th>Email</th><th>Phone</th><th>Address</th><th>Actions</th></tr></thead>
     <tbody>
     @foreach (var b in Model)
     {
         <tr>
-            <td>@b.FullName</td><td>@b.Email</td><td>@b.Phone</td><td>@b.Address</td>
+            <td><code>@b.CardNumber</code></td><td>@b.FullName</td><td>@b.Email</td><td>@b.Phone</td><td>@b.Address</td>
             <td class="actions">
                 <a class="action-btn" asp-action="Edit" asp-route-id="@b.Id"><i class="bi bi-pencil-square" aria-hidden="true"></i> Edit</a>
                 <a class="action-btn action-btn-danger" asp-action="Delete" asp-route-id="@b.Id"><i class="bi bi-trash3" aria-hidden="true"></i> Delete</a>
@@ -22,7 +22,7 @@
     }
     @if (!Model.Any())
     {
-        <tr><td colspan="5">
+        <tr><td colspan="6">
             <div class="empty-state">
                 <i class="bi bi-people" aria-hidden="true"></i>
                 <strong>No borrowers yet</strong>

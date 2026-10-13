@@ -1,0 +1,22 @@
+@model List<Branch>
+@{
+    ViewData["Title"] = "Choose a branch";
+    Layout = "_KioskLayout";
+}
+<section class="kiosk-panel">
+    <h1>Self-service kiosk</h1>
+    <p class="kiosk-lead">Which branch is this kiosk in?</p>
+    @if (Model.Count == 0)
+    {
+        <div class="kiosk-message kiosk-error"><i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i> There are no active branches. Please ask library staff.</div>
+    }
+    <div class="kiosk-branch-grid">
+        @foreach (var branch in Model)
+        {
+            <a class="kiosk-btn kiosk-btn-wide" asp-action="Welcome" asp-route-branchCode="@branch.Code">
+                <i class="bi bi-geo-alt-fill" aria-hidden="true"></i> @branch.Name
+            </a>
+        }
+    </div>
+    <p class="kiosk-hint">Staff: bookmark <code>/kiosk/&lt;branch code&gt;</code> on each kiosk so it opens at the right branch.</p>
+</section>

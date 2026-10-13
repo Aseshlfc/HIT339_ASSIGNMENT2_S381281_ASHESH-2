@@ -1,0 +1,27 @@
+@model KioskWelcomeViewModel
+@{
+    ViewData["Title"] = "Welcome";
+    ViewData["KioskBranchName"] = Model.Branch.Name;
+    Layout = "_KioskLayout";
+}
+<section class="kiosk-panel kiosk-welcome">
+    <h1>Welcome</h1>
+    <p class="kiosk-lead">Scan your library card, or type your card number, to borrow items and see your account.</p>
+
+    @if (Model.Error != null)
+    {
+        <div class="kiosk-message kiosk-error" role="alert"><i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i> @Model.Error</div>
+    }
+
+    <form method="post" asp-action="Account" asp-route-branchCode="@Model.Branch.Code" class="kiosk-form">
+        <label for="CardNumber" class="kiosk-label">Library card number</label>
+        <div class="kiosk-input-row">
+            <i class="bi bi-upc-scan" aria-hidden="true"></i>
+            <input id="CardNumber" name="CardNumber" value="@Model.CardNumber" autofocus autocomplete="off"
+                   autocapitalize="characters" spellcheck="false" enterkeyhint="go" placeholder="e.g. P0001" />
+        </div>
+        <button type="submit" class="kiosk-btn"><i class="bi bi-arrow-right-circle-fill" aria-hidden="true"></i> Continue</button>
+    </form>
+
+    <p class="kiosk-hint">A barcode scanner types the number for you and presses Enter automatically.</p>
+</section>
