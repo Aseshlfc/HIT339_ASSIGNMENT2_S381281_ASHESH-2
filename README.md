@@ -97,3 +97,44 @@ dotnet test Tests/LibraryManagementSystem.Tests.csproj
 5. Return it and demonstrate the item condition/status choice.
 6. For a late-fine demonstration, return one of the seeded loans that is already overdue rather than modifying the database.
 7. Login as Manager and show the borrowing, item status and fine statistics.
+
+
+## Section 3: Reservations and Notifications
+
+All pages below are for the **Reception** account (`reception` / `Reception123!`).
+
+### Notifications
+- **Where:** Notifications in the menu. It lists every simulated email or SMS, newest first, with a filter by type.
+- **How it works:** every message goes through `Services/NotificationService.cs`. It saves a row to the `Notifications` table and writes a line to the console. It uses Email when the borrower has an email address, SMS when there is only a phone number, and skips borrowers with neither.
+- **When messages are sent:**
+  - **Borrowed:** after a successful borrow.
+  - **FineIssued:** when a return creates a late fine.
+  - **DueSoon:** when staff click **Run due-date check** on the Notifications page. It reminds borrowers whose unreturned loans are due within 2 days, and does not send the same reminder twice.
+  - **ReservationReady:** when an item becomes available and a borrower is first in its queue.
+  - **ReservationExpired:** when a Ready hold is not collected in time.
+
+### Reservations
+- **Where:** Reservations in the menu, then **Place Hold**.
+- **Rules:** a hold can only be placed on a Borrowed or Damaged item. It is refused for Available, Destroy and In-transit items, for a borrower who already has an active hold on the item, and for a borrower who currently has the item on loan.
+- **Queue:** holds are served in the order they were placed. The Reservations page shows each waiting borrower's queue position, and Waiting holds can be cancelled.
+- **When an item becomes available** (returned by Reception, or set to Available by an Admin after repair), the first Waiting hold becomes **Ready** and that borrower is notified.
+- **Ready holds are protected:** only that borrower can borrow the item, and the hold becomes **Fulfilled** when they do.
+- **Expiry:** a Ready hold not collected within 3 days expires when staff click **Expire old holds** on the Reservations page. The borrower is told, and the next person in the queue is offered the item.
+
+### How to try it
+1. Log in as `reception`. Open **Reservations**, then **Place Hold**.
+2. Place a hold on a Borrowed item (for example `B001`) for a borrower who does not have it.
+3. Open **Loans** and return that item. The hold becomes **Ready**.
+4. Open **Notifications** to see the **ReservationReady** message.
+5. Try borrowing that item for a different borrower. It is refused. Borrow it for the borrower with the hold, and the hold disappears from the list because it is now Fulfilled.
+
+The seed data has no loan due within 2 days, so the due-date reminder and hold expiry are demonstrated by automated tests (see below). The buttons themselves can be clicked and report that nothing needed to be sent.
+
+### Tests
+Run from the project root:
+
+```bash
+dotnet test Tests/LibraryManagementSystem.Tests.csproj
+```
+
+Section 3 tests are in `Tests/NotificationAndQueueTests.cs`, `Tests/DueDateReminderServiceTests.cs` and `Tests/ReservationExpiryTests.cs`. Screenshots of the working features are in `docs/screenshots`, and the build log is in `docs/SECTION3_NOTES.md`.
