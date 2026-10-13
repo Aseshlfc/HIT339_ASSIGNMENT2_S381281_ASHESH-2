@@ -22,3 +22,9 @@
 
 ## 2026-10-13
 - Tested Stage 7 manually: returning B002 as Available turned the first Waiting hold to Ready and created a ReservationReady notification; the next hold moved up to position 1.
+- LoansController.Borrow now respects Ready holds: if an item has a Ready reservation, only that borrower can borrow it, and the hold becomes Fulfilled in the same save as the loan. Why: otherwise the borrower who was notified could lose the item to someone else at the desk.
+- Stage 7 complete: queue notification works from both the return flow and the Admin status change, and the Ready hold is enforced at borrowing. Tested manually, with screenshots 09 to 12.
+- Added DueDateReminderService (Services/DueDateReminderService.cs) and a "Run due-date check" button on the Notifications page. It sends a DueSoon notification for each unreturned loan due within 2 days. Why a button: it simulates a scheduled job without a background service, which keeps the demo predictable.
+- Reminders are not duplicated: a borrower is not sent a DueSoon message that already exists for the same item and due date, so the button can be pressed repeatedly without spamming.
+- The button lives on NotificationsController rather than LoansController so the existing LoansController tests are unaffected.
+- The seed data has no loan due within 2 days, so the reminder logic is verified by five xUnit tests (Tests/DueDateReminderServiceTests.cs): due tomorrow sends one reminder, running twice sends no duplicate, loans too far away or overdue are skipped, returned loans are skipped, and borrowers with no contact details are skipped. The button itself was tested manually and correctly reports that no reminders were needed.

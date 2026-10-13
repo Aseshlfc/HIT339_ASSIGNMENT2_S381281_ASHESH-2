@@ -16,7 +16,13 @@ namespace LibraryManagementSystem.Controllers;
 public class ReservationsController : Controller
 {
     private readonly LibraryContext _db;
-    public ReservationsController(LibraryContext db) => _db = db;
+    private readonly IReservationService _reservations;
+
+    public ReservationsController(LibraryContext db, IReservationService reservations)
+    {
+        _db = db;
+        _reservations = reservations;
+    }
 
     // Lists active holds (Waiting or Ready) with each waiting borrower's queue position.
     public async Task<IActionResult> Index()
@@ -122,6 +128,17 @@ public class ReservationsController : Controller
         return RedirectToAction(nameof(Index));
     }
 
+    // Staff trigger that expires Ready holds not collected within the hold period.
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> ExpireOldHolds()
+    {
+        var expired = await _reservations.ExpireUncollectedHoldsAsync();
+        TempData["Success"] = expired == 0
+            ? $"Hold check finished. No Ready holds were older than {ReservationService.HoldDays} days."
+            : $"Hold check finished. {expired} uncollected hold(s) expired.";
+        return RedirectToAction(nameof(Index));
+    }
     private async Task LoadBorrowers()
     {
         var borrowers = await _db.Borrowers.AsNoTracking().OrderBy(b => b.FullName).ToListAsync();

@@ -1,11 +1,17 @@
-﻿@model IEnumerable<Reservation>
+﻿@using LibraryManagementSystem.Services
+@model IEnumerable<Reservation>
 @{
     ViewData["Title"] = "Reservations";
     var positions = (Dictionary<int, int>)ViewBag.QueuePositions;
 }
 <div class="page-heading">
-    <div><h1>Reservations</h1><p>Holds on borrowed or damaged items, in queue order.</p></div>
-    <a class="btn" asp-action="Create"><i class="bi bi-bookmark-plus" aria-hidden="true"></i> Place Hold</a>
+    <div><h1>Reservations</h1><p>Holds on borrowed or damaged items, in queue order. Ready holds are kept for @ReservationService.HoldDays days.</p></div>
+    <div class="button-row">
+        <form asp-action="ExpireOldHolds" method="post" class="inline-form">
+            <button class="btn btn-secondary" type="submit"><i class="bi bi-hourglass-split" aria-hidden="true"></i> Expire old holds</button>
+        </form>
+        <a class="btn" asp-action="Create"><i class="bi bi-bookmark-plus" aria-hidden="true"></i> Place Hold</a>
+    </div>
 </div>
 <div class="table-wrap">
     <table>
