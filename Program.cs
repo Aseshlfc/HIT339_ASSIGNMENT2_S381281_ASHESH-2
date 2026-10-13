@@ -22,6 +22,7 @@ builder.Services.AddScoped<IReportService, ReportService>();
 builder.Services.AddSingleton<IReportPdfService, ReportPdfService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<IReservationService, ReservationService>();
+builder.Services.AddScoped<IDueDateReminderService, DueDateReminderService>();
 
 builder.Services.ConfigureApplicationCookie(options =>
 {
