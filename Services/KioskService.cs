@@ -141,7 +141,7 @@ public class KioskService : IKioskService
         if (string.IsNullOrEmpty(code))
             return new KioskCheckoutResult(false, "Scan or type the library code printed on the item.");
 
-        var item = await FindItemAsync(code);
+        var item = await _db.FindItemByCodeAsync(code);
         if (item == null)
             return new KioskCheckoutResult(false, $"No item was found with the code \"{code}\". Check the code and try again.");
 
@@ -192,15 +192,5 @@ public class KioskService : IKioskService
 
         return new KioskCheckoutResult(true,
             $"You borrowed \"{item.Name}\". Please return it by {loan.DueDate:dddd d MMMM yyyy}.", loan, item);
-    }
-
-    // Exact match first (codes are unique), then a case-insensitive match so a
-    // code typed as "b001" still finds B001. Two items that differ only by case
-    // are ambiguous and are treated as not found rather than guessed.
-    private async Task<Item?> FindItemAsync(string code)
-    {
-        var upper = code.ToUpperInvariant();
-        var matches = await _db.Items.Where(i => i.LibraryCode.ToUpper() == upper).Take(2).ToListAsync();
-        return matches.FirstOrDefault(i => i.LibraryCode == code) ?? (matches.Count == 1 ? matches[0] : null);
     }
 }

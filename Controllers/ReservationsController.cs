@@ -64,7 +64,7 @@ public class ReservationsController : Controller
             return View(model);
         }
 
-        var item = await _db.Items.SingleOrDefaultAsync(i => i.LibraryCode == model.LibraryCode);
+        var item = await _db.FindItemByCodeAsync(model.LibraryCode);
         if (item == null)
             ModelState.AddModelError(nameof(model.LibraryCode), "No item was found with this library code.");
         else if (item.Status == ItemStatus.Available)
