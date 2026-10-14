@@ -1,6 +1,6 @@
 # Section 2 User Guide - Kiosk, API and CSV Import
 
-Demo logins: `admin` / `Admin123!`, `reception` / `Reception123!`, `manager` / `Manager123!`.
+Demo logins: `admin`, `reception` and `manager`. The demonstration passwords are shown on the Staff Login page and are not published in this documentation.
 Demo library cards: **P0001** Alice Nguyen, **P0002** Ben Carter (has an overdue loan), **P0003** Chloe Smith, **P0004** David Lee, **P0005** Priya Patel (has an overdue loan and a $3 unpaid fine).
 
 ---
@@ -103,5 +103,5 @@ Practice files are in `docs/samples/`: `items-import-valid.csv` (7 good rows) an
 See [SECTION2_API.md](SECTION2_API.md). In short:
 
 ```bash
-curl -H "X-Api-Key: demo-public-api-key-change-me" "http://localhost:5190/api/v1/items?availableOnly=true&branch=NTH"
+curl -H "X-Api-Key: <your-api-key>" "http://localhost:5190/api/v1/items?availableOnly=true&branch=NTH"
 ```

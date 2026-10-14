@@ -8,10 +8,10 @@ Base address (local run): `http://localhost:5190/api/v1` (use the port shown whe
 Send your key in the `X-Api-Key` header on every request. Keys in the URL are not accepted, because URLs end up in logs and browser history.
 
 ```bash
-curl -H "X-Api-Key: demo-public-api-key-change-me" http://localhost:5190/api/v1/status
+curl -H "X-Api-Key: <your-api-key>" http://localhost:5190/api/v1/status
 ```
 
-The demo key above is for development only. To change keys, edit `appsettings.json`:
+Replace `<your-api-key>` with a key configured under `PublicApi:ApiKeys`. The key that ships in `appsettings.json` is for development only. To change keys, edit `appsettings.json`:
 
 ```json
 "PublicApi": {
@@ -47,7 +47,7 @@ The same settings can be set with environment variables, for example `PublicApi_
 Filters combine with AND. Results are sorted by name, then library code. Destroyed items are never included.
 
 ```bash
-curl -H "X-Api-Key: demo-public-api-key-change-me" \
+curl -H "X-Api-Key: <your-api-key>" \
   "http://localhost:5190/api/v1/items?type=toy&availableOnly=true&pageSize=2"
 ```
 
@@ -76,7 +76,7 @@ Fields that only apply to one type are left out for the other types: books have 
 
 ### GET /items/{libraryCode}
 ```bash
-curl -H "X-Api-Key: demo-public-api-key-change-me" http://localhost:5190/api/v1/items/T005
+curl -H "X-Api-Key: <your-api-key>" http://localhost:5190/api/v1/items/T005
 ```
 Returns one item in the shape above, or 404 if the code does not exist.
 

@@ -489,7 +489,7 @@ translation (the `instr()` SQL function), not from an external doc lookup.
 
 ---
 
-**Test 3 — Admin login** (http://localhost:5190/Account/Login, admin / Admin123!)
+**Test 3 — Admin login** (http://localhost:5190/Account/Login, admin demo account)
 I confirmed in the browser: logged in successfully, redirected to
 Items (Admin landing page), nav bar showed username/role and Logout, no
 Loans/Borrowers/Statistics links visible for the Admin role.

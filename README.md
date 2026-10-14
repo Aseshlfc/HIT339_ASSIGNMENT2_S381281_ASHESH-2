@@ -1,171 +1,353 @@
-# Simple Library Management System
+# Simple Library — Multi-Branch Library Management System
 
-ASP.NET Core MVC + Entity Framework Core + SQLite implementation of a simple library assignment.
+HIT339 group project. An ASP.NET Core MVC library management system, extended from a single-location Assignment 2 application into a multi-branch system with a self-service kiosk, a public REST API, bulk import, reservations and notifications.
 
-## Requirements covered
+> **Status.** This README describes the combined application: the Assignment 2 baseline plus Section 1 (multi-branch inventory, transfers, manager analytics), Section 2 (kiosk, REST API, CSV import) and Section 3 (reservations, waitlist, notifications), with the integration fixes listed under [Integration notes](#integration-notes). The project targets **.NET 8**; the assignment requires .NET 10 and the upgrade is outstanding.
 
-### 1. Admin account
-- CRUD for Books, Music and Toys.
-- `Item` is an abstract superclass.
-- `Book`, `Music` and `Toy` inherit from `Item`.
-- Common fields: Name, Description, Library Code and Status.
-- Statuses: Available, Borrowed, Damaged, Destroy.
-- Book extra fields: Author, Genre, Publication Year.
-- Music extra fields: Artist, Genre, Release Year.
-- Toy extra fields: Toy Type, Minimum Age, Manufacturer.
-- Staff account management: view, create, edit, disable/re-enable and delete Admin/Reception/Manager accounts, with safety guards preventing the last remaining Admin from being deleted, disabled or having their role changed away, and preventing an Admin from deleting or disabling their own account.
+## Contents
 
-### 2. Reception account
-- CRUD borrower details.
-- Borrow an item using its library code and selected borrower.
-- 14-day loan period.
-- Return items and calculate late fines automatically.
-- Late fine is $1.00 per overdue day.
-- Returned items can be marked Available, Damaged or Destroy.
-- Outstanding fine can be marked paid.
+1. [Technology stack](#technology-stack)
+2. [Development requirements](#development-requirements)
+3. [Quick start](#quick-start)
+4. [Repository structure](#repository-structure)
+5. [Configuration](#configuration)
+6. [Database, migrations and seeding](#database-migrations-and-seeding)
+7. [Roles and demo accounts](#roles-and-demo-accounts)
+8. [Baseline: Assignment 2 requirements](#baseline-assignment-2-requirements)
+9. [Section 1: Multi-branch inventory and manager analytics](#section-1-multi-branch-inventory-and-manager-analytics)
+10. [Section 2: Public kiosk, REST API and data import](#section-2-public-kiosk-rest-api-and-data-import)
+11. [Section 3: Reservations and notifications](#section-3-reservations-and-notifications)
+12. [Integration notes](#integration-notes)
+13. [Testing](#testing)
+14. [Suggested demonstration](#suggested-demonstration)
+15. [GitHub workflow](#github-workflow)
+16. [Known limitations](#known-limitations)
+17. [Further documentation](#further-documentation)
 
-### 3. Manager account
-- Borrowing statistics.
-- Item status statistics.
-- Item type statistics.
-- Fine statistics: total, paid and outstanding.
-- Top 10 most borrowed items.
+## Technology stack
 
-### 4. Public responsive portal
-- No login required.
-- Search by name, description or library code.
-- Filter by Books, Music or Toys.
-- Optional "available only" filter.
-- Responsive layout for phone and desktop.
+| Layer | Technology |
+|---|---|
+| Web framework | ASP.NET Core MVC, .NET 8 (`net8.0`) |
+| Data access | Entity Framework Core 8.0.11 |
+| Database | SQLite (`library.db`) |
+| Authentication | ASP.NET Core Identity, cookie sign-in, role-based authorisation |
+| Public API | ASP.NET Core controllers, API key header, built-in rate limiter |
+| PDF generation | QuestPDF 2026.9.1 (Community licence) |
+| Front end | Razor views, hand-written stylesheets (`wwwroot/css/site.css`, `wwwroot/css/kiosk.css`), Bootstrap Icons from a CDN |
+| Tests | xUnit, EF Core InMemory, temporary SQLite files, PdfPig (reads PDFs in tests) |
 
-## Demo staff accounts
+No NuGet packages were added for Sections 2 and 3: the CSV reader and the rate limiting use what ships with .NET.
 
-| Role | Username | Password |
-|---|---|---|
-| Admin | `admin` | `Admin123!` |
-| Reception | `reception` | `Reception123!` |
-| Manager | `manager` | `Manager123!` |
+## Development requirements
 
-These passwords are for a classroom/demo project. Change them for real use.
+- .NET 8 SDK
+- Git
+- Windows or macOS
+- Optional: Visual Studio 2022 or Visual Studio Code; `dotnet-ef` for working with migrations
 
-## Run
-
-Install the .NET 8 SDK, then from this folder run:
+## Quick start
 
 ```bash
+git clone https://github.com/Aseshlfc/HIT339_ASSIGNMENT2_S381281_ASHESH-2.git
+cd HIT339_ASSIGNMENT2_S381281_ASHESH-2
 dotnet restore
 dotnet run
 ```
 
-Open the address printed in the terminal (the included launch profile uses `http://localhost:5190`).
+Open the address printed in the terminal (the included launch profile uses **http://localhost:5190**). The database is migrated and seeded automatically on start-up.
 
-The SQLite database `library.db` is created via EF Core migrations on first run (`dotnet ef database update`, or automatically via `Database.Migrate()` at startup) and seeded with the three staff accounts, a 20-item catalogue (books/music/toys), 5 demo borrowers and 6 demo loans.
+## Repository structure
 
-## Tests
-
-Automated tests live in `Tests/` (xUnit). Most tests use the EF Core InMemory provider, but the concurrency test deliberately uses a real temporary SQLite database, since the InMemory provider does not enforce optimistic concurrency tokens. Run them from the project root with:
-
-```bash
-dotnet test Tests/LibraryManagementSystem.Tests.csproj
+```
+LibraryManagementSystem.csproj   Application project (repository root; there is no .sln file)
+Program.cs                       Start-up: services, authentication, rate limiting, migration and seeding
+appsettings.json                 Connection string, logging, public API and kiosk settings
+Api/                             Public API options, API key filter, response shapes, kiosk options
+Controllers/                     MVC controllers and the API controller
+Data/                            LibraryContext (EF Core), DbSeeder, staff-branch and item-code lookups
+Migrations/                      EF Core migrations and model snapshot
+Models/                          Entities: Item (Book, Music, Toy), Borrower, Loan, Branch, ItemTransfer,
+                                 Reservation, Notification, ApplicationUser
+Services/                        Transfers, reports (CSV and PDF), kiosk, CSV import, reservations,
+                                 notifications, due-date reminders
+ViewComponents/                  Header chip showing the signed-in user's branch
+ViewModels/                      Form and page models
+Views/                           Razor views, one folder per controller
+wwwroot/css/                     Stylesheets
+Tests/                           xUnit test project (LibraryManagementSystem.Tests.csproj)
+docs/                            Section documentation, screenshots and sample import files
+PROGRAMMERS_LOG.md               Development log from Assignment 2
+library.db                       SQLite database (Assignment 2 data; upgraded on first run)
 ```
 
-## Important files
+## Configuration
 
-- `Models/Item.cs` - superclass and item status enum.
-- `Models/Book.cs`, `Models/Music.cs`, `Models/Toy.cs` - inherited item classes.
-- `Controllers/ItemsController.cs` - Admin item CRUD.
-- `Controllers/BorrowersController.cs` - Reception borrower CRUD.
-- `Controllers/LoansController.cs` - borrow, return and fine workflow.
-- `Controllers/ManagerController.cs` - statistics dashboard.
-- `Controllers/HomeController.cs` - public search portal.
-- `Data/LibraryContext.cs` - EF Core database setup using table-per-hierarchy inheritance.
-- `Models/LibraryRules.cs` - loan days and fine rate.
+Settings live in `appsettings.json` and can be overridden with environment variables (replace `:` with `__`).
 
-## Database design summary
+| Setting | Purpose | Default |
+|---|---|---|
+| `ConnectionStrings:DefaultConnection` | SQLite database file | `Data Source=library.db` |
+| `PublicApi:ApiKeys` | Keys accepted by the REST API. With none configured the API is switched off | one demonstration key |
+| `PublicApi:RequestsPerMinute` | API requests allowed per client address per minute | 60 |
+| `PublicApi:DefaultPageSize`, `PublicApi:MaxPageSize` | API paging | 20, 100 |
+| `Kiosk:RequestsPerMinute` | Kiosk card look-ups and checkouts allowed per client address per minute | 30 |
 
-- `Items` stores all inherited item types using EF Core table-per-hierarchy inheritance and an item discriminator.
+The API key in `appsettings.json` is a placeholder for classroom demonstration. Replace it before any real use, for example with the environment variable `PublicApi__ApiKeys__0`. Do not commit real keys.
+
+## Database, migrations and seeding
+
+Migrations run automatically at start-up. To apply them by hand:
+
+```bash
+dotnet tool install --global dotnet-ef
+dotnet ef database update
+```
+
+| Migration | Section | Adds |
+|---|---|---|
+| `AddAspNetCoreIdentity` | Baseline | Initial schema: items, borrowers, loans, Identity tables |
+| `AddItemStatusConcurrencyToken` | Baseline | Concurrency check on item status (no schema change) |
+| `AddBranchesAndTransfers` | 1 | `Branches`, `ItemTransfers`; `BranchId` on items, staff and loans |
+| `AddItemMovementKind` | 1 | `Kind` on `ItemTransfers`; assigns existing Reception accounts to the default branch |
+| `AddNotifications` | 3 | `Notifications` |
+| `AddReservations` | 3 | `Reservations` |
+
+Section 2 adds no tables or columns. The library card number is derived from the borrower Id (for example `P0007`).
+
+**Database design summary**
+
+- `Items` stores all item types using EF Core table-per-hierarchy inheritance and an item discriminator. `Item` is an abstract superclass; `Book`, `Music` and `Toy` inherit from it.
 - `Borrowers` stores patron information.
-- `Loans` links one borrower to one item and records borrowing, due date, return date and fine.
-- Staff accounts and roles use ASP.NET Core Identity (`AspNetUsers`, `AspNetRoles`, `AspNetUserRoles`, etc.), created and applied via EF Core migrations.
+- `Loans` links one borrower to one item and records borrowing, due date, return date, fine and issuing branch.
+- `Branches` and `ItemTransfers` record where each item is and every change of location.
+- `Reservations` holds the queue for each item; `Notifications` stores every simulated email or SMS.
+- Staff accounts and roles use ASP.NET Core Identity (`AspNetUsers`, `AspNetRoles`, `AspNetUserRoles` and related tables).
 
-## Suggested assignment demonstration
+**Seeding.** On start-up the application creates anything missing: the three roles, one demo account per role, two demo branches beside the default Central Library, and — only when the tables are empty — 20 items, 5 borrowers and 6 loans.
 
-1. Open public search on a phone-sized browser window.
-2. Login as Admin and create one Book, one Music item and one Toy.
-3. Login as Reception, create a borrower and borrow an item using its library code.
-4. Show that its status changes from Available to Borrowed.
-5. Return it and demonstrate the item condition/status choice.
-6. For a late-fine demonstration, return one of the seeded loans that is already overdue rather than modifying the database.
-7. Login as Manager and show the borrowing, item status and fine statistics.
+**Existing data.** The `library.db` in the repository is the Assignment 2 database. On first run it is upgraded in place: all records are kept and every item is assigned to Central Library. Delete `library.db` before the first run to start from an empty database with the demo catalogue spread across three branches.
 
+When adding a migration, merge the latest `main` first. See the [GitHub workflow](#github-workflow).
 
-## Section 3: Reservations and Notifications
+## Roles and demo accounts
 
-All pages below are for the **Reception** account (`reception` / `Reception123!`).
+| Role | Demo username | Access |
+|---|---|---|
+| Admin | `admin` | Items, CSV import, staff accounts, branches (full), transfers (any branch) |
+| Reception | `reception` | Loans, borrowers, reservations, notifications, transfers for its own branch, branches (view) |
+| Manager | `manager` | Dashboard, reports and exports, branches (view) |
+| Public | no login | Catalogue search, self-service kiosk (library card number) |
+| External application | API key | Read-only REST API |
+
+The demonstration passwords are not published in this repository's documentation. They are displayed on the Staff Login page and are set in `Data/DbSeeder.cs`. They exist for classroom demonstration only; change them before any real use.
+
+## Baseline: Assignment 2 requirements
+
+**Admin account**
+- CRUD for Books, Music and Toys.
+- Common fields: Name, Description, Library Code and Status.
+- Statuses: Available, Borrowed, Damaged, Destroy (and In transit, set by the transfer workflow).
+- Book extra fields: Author, Genre, Publication Year. Music: Artist, Genre, Release Year. Toy: Toy Type, Minimum Age, Manufacturer.
+- Staff account management: view, create, edit, disable/re-enable and delete Admin/Reception/Manager accounts, with safety guards preventing the last remaining Admin from being deleted, disabled or having their role changed away, and preventing an Admin from deleting or disabling their own account.
+
+**Reception account**
+- CRUD borrower details.
+- Borrow an item using its library code and selected borrower. 14-day loan period.
+- Return items and calculate late fines automatically. Late fine is $1.00 per overdue day (`Models/LibraryRules.cs`).
+- Returned items can be marked Available, Damaged or Destroy.
+- Outstanding fine can be marked paid.
+
+**Manager account**
+- Borrowing, item status, item type and fine statistics; top 10 most borrowed items.
+
+**Public responsive portal**
+- No login required. Search by name, description or library code; filter by Books, Music or Toys; optional "available only" filter; responsive layout for phone and desktop.
+
+## Section 1: Multi-branch inventory and manager analytics
+
+Full notes: [`docs/SECTION1_MULTIBRANCH_ANALYTICS.md`](docs/SECTION1_MULTIBRANCH_ANALYTICS.md).
+
+| Module | Where | Summary |
+|---|---|---|
+| Public catalogue search | `HomeController` | Search by name, description or library code; filter by type, branch and availability |
+| Items | `ItemsController` | Create, view, edit and delete books, music and toys. The branch is chosen when an item is created |
+| Borrowers | `BorrowersController` | Create, edit and delete borrowers |
+| Loans | `LoansController` | Borrow by library code (14-day loan), return, late fine of $1.00 per day, mark fine paid |
+| Staff | `StaffController` | Create, edit, disable and delete staff accounts; assign role and branch |
+| Branches | `BranchesController` | Create, edit, deactivate and delete branches; view each branch's inventory, staff and open transfers |
+| Transfers | `TransfersController`, `TransferService` | Move items between branches |
+| Manager analytics | `ManagerController`, `ReportService` | Dashboard, three reports, CSV and PDF export |
+
+**Multi-branch functionality**
+
+- Every item belongs to one branch. Existing items were assigned to Central Library by the migration.
+- A Reception account belongs to a branch and can lend only items held there. A Reception account with no branch cannot lend or accept returns.
+- Each new loan records its issuing branch. Loans made before the upgrade show "Not recorded".
+- An existing item's branch is not edited directly. It changes in three recorded ways: a transfer, an Admin location correction (reason required), or a return at another branch's desk.
+
+**Transfers**
+
+| Step | Who | Effect |
+|---|---|---|
+| Request | Admin, or Reception for an item from or to their branch | Transfer created; item stays available |
+| Dispatch | Source branch | Item becomes In transit and cannot be borrowed |
+| Receive | Destination branch | Item's branch changes to the destination; item becomes available |
+| Cancel / Reject | Either branch / source branch | Item remains at, or returns to, the source |
+
+Only available items with no open loan, no open transfer and no active reservation can be transferred. A transfer cannot be completed twice.
+
+**Analytics and reporting**
+
+Manager → Statistics. Reports: Borrowing statistics (date range, branch, category), Fine revenue audit (date range, branch, category, paid/outstanding) and Inventory health (branch, category). Each downloads as CSV (UTF-8, spreadsheet-safe) or PDF using the filters on the page. PDF text outside the report font (for example Japanese, Chinese, Korean or Devanagari) is drawn with fonts installed on the machine running the application.
+
+## Section 2: Public kiosk, REST API and data import
+
+Author: Susan Acharya. Full notes: [`docs/SECTION2_NOTES.md`](docs/SECTION2_NOTES.md). No database migration is needed for this section.
+
+### Kiosk (no login)
+- **Where:** the **Kiosk** link in the menu, or `/kiosk/CEN` (Central), `/kiosk/NTH`, `/kiosk/RIV`.
+- **How:** type or scan a library card number (the **Borrowers** page shows each one, for example `P0005`). The kiosk shows loans, fines and reservations. Scan or type an item code (for example `B003`) and tap **Borrow**.
+- **Rules:** same as the desk: only Available items held at that branch, items kept for another patron's hold are refused, loans are due in 14 days, and a Borrowed notification is sent. The kiosk signs out after 60 seconds idle.
+- **Limits:** card look-ups and checkouts are limited per client address (see [Configuration](#configuration)). There is no PIN: see [Known limitations](#known-limitations).
+
+### REST API (read-only, API key)
+- **Endpoints:** `GET /api/v1/items`, `/api/v1/items/{libraryCode}`, `/api/v1/categories`, `/api/v1/status`.
+- **Try it** (use a key configured under `PublicApi:ApiKeys`):
+
+```bash
+curl -H "X-Api-Key: <your-api-key>" "http://localhost:5190/api/v1/items?type=toy&availableOnly=true"
+```
+
+- Needs the `X-Api-Key` header (change keys in `appsettings.json`; keys in the URL are not accepted), allows 60 requests per minute per client and GET only. `status` must be a name (Available, Borrowed, Damaged or InTransit). Items written off (Destroy) are never listed. Full reference: [`docs/SECTION2_API.md`](docs/SECTION2_API.md).
+
+### CSV import (Admin)
+1. Log in as the Admin demo account and open **Import**.
+2. Click **Download template**, or use `docs/samples/items-import-valid.csv`.
+3. Upload with **Check the file only** ticked to see a line-by-line report without saving.
+4. Upload again without it ticked to import. Try `docs/samples/items-import-with-errors.csv` to see the validation messages.
+
+Files are limited to 1 MB and 1000 rows, UTF-8. Import adds items only; it does not update existing ones.
+
+### Documents
+[`docs/SECTION2_REQUIREMENTS.md`](docs/SECTION2_REQUIREMENTS.md), [`docs/SECTION2_USER_GUIDE.md`](docs/SECTION2_USER_GUIDE.md), [`docs/SECTION2_API.md`](docs/SECTION2_API.md), [`docs/SECTION2_USER_JOURNEYS.md`](docs/SECTION2_USER_JOURNEYS.md), [`docs/SECTION2_NOTES.md`](docs/SECTION2_NOTES.md). Screenshots are in `docs/section2-images`.
+
+### Tests
+Section 2 tests are in `Tests/KioskServiceTests.cs`, `Tests/KioskControllerTests.cs`, `Tests/CatalogueApiTests.cs` and `Tests/ItemImportServiceTests.cs`.
+
+## Section 3: Reservations and notifications
+
+Author: Milan. Build log: [`docs/SECTION3_NOTES.md`](docs/SECTION3_NOTES.md). All pages below are for the **Reception** demo account.
 
 ### Notifications
 - **Where:** Notifications in the menu. It lists every simulated email or SMS, newest first, with a filter by type.
 - **How it works:** every message goes through `Services/NotificationService.cs`. It saves a row to the `Notifications` table and writes a line to the console. It uses Email when the borrower has an email address, SMS when there is only a phone number, and skips borrowers with neither.
 - **When messages are sent:**
-  - **Borrowed:** after a successful borrow.
+  - **Borrowed:** after a successful borrow, at the desk or the kiosk.
   - **FineIssued:** when a return creates a late fine.
   - **DueSoon:** when staff click **Run due-date check** on the Notifications page. It reminds borrowers whose unreturned loans are due within 2 days, and does not send the same reminder twice.
   - **ReservationReady:** when an item becomes available and a borrower is first in its queue.
   - **ReservationExpired:** when a Ready hold is not collected in time.
+  - **ReservationCancelled:** when an item with holds is written off (Destroy).
+  - **ReservationDelayed:** when an item being kept for a borrower stops being available (for example it is marked Damaged).
 
 ### Reservations
-- **Where:** Reservations in the menu, then **Place Hold**.
+- **Where:** Reservations in the menu, then **Place Hold**. The list shows the branch that physically holds each item.
 - **Rules:** a hold can only be placed on a Borrowed or Damaged item. It is refused for Available, Destroy and In-transit items, for a borrower who already has an active hold on the item, and for a borrower who currently has the item on loan.
-- **Queue:** holds are served in the order they were placed. The Reservations page shows each waiting borrower's queue position, and Waiting holds can be cancelled.
-- **When an item becomes available** (returned by Reception, or set to Available by an Admin after repair), the first Waiting hold becomes **Ready** and that borrower is notified.
-- **Ready holds are protected:** only that borrower can borrow the item, and the hold becomes **Fulfilled** when they do.
-- **Expiry:** a Ready hold not collected within 3 days expires when staff click **Expire old holds** on the Reservations page. The borrower is told, and the next person in the queue is offered the item.
+- **Queue:** holds are served in the order they were placed. The Reservations page shows each waiting borrower's queue position. Waiting and Ready holds can be cancelled; cancelling a Ready hold offers the item to the next borrower.
+- **When an item becomes available** (returned by Reception, set to Available by an Admin after repair, or back on the shelf after a transfer is received or cancelled), the first Waiting hold becomes **Ready** and that borrower is notified.
+- **Ready holds are protected:** only that borrower can borrow the item, at the desk or the kiosk, and the hold becomes **Fulfilled** when they do. A reserved item cannot be transferred to another branch.
+- **Expiry:** a Ready hold not collected within 3 days expires when staff click **Expire old holds** on the Reservations page. The borrower is told, and the next person in the queue is offered the item. The 3 days only run while the item is available to collect.
 
 ### How to try it
-1. Log in as `reception`. Open **Reservations**, then **Place Hold**.
-2. Place a hold on a Borrowed item (for example `B001`) for a borrower who does not have it.
+1. Log in as the Reception demo account. Open **Reservations**, then **Place Hold**.
+2. Place a hold on a Borrowed item (for example `B008`) for a borrower who does not have it.
 3. Open **Loans** and return that item. The hold becomes **Ready**.
 4. Open **Notifications** to see the **ReservationReady** message.
 5. Try borrowing that item for a different borrower. It is refused. Borrow it for the borrower with the hold, and the hold disappears from the list because it is now Fulfilled.
 
-The seed data has no loan due within 2 days, so the due-date reminder and hold expiry are demonstrated by automated tests (see below). The buttons themselves can be clicked and report that nothing needed to be sent.
+The seed data has no loan due within 2 days, so the due-date reminder and hold expiry are demonstrated by automated tests. The buttons themselves can be clicked and report that nothing needed to be sent.
 
 ### Tests
-Run from the project root:
+Section 3 tests are in `Tests/NotificationAndQueueTests.cs`, `Tests/DueDateReminderServiceTests.cs` and `Tests/ReservationExpiryTests.cs`. Screenshots of the working features are in `docs/screenshots`.
+
+## Integration notes
+
+Changes made when the three sections were combined. Regression tests are in `Tests/IntegrationFixTests.cs`.
+
+| Area | Change |
+|---|---|
+| Reservations and transfers | An item with an active hold cannot be requested or dispatched for transfer. Receiving or cancelling a transfer offers the item to the first waiting borrower |
+| Borrowing | The desk and the kiosk share one hold rule (`IReservationService.CheckBorrowAsync`): an item with a queue can only be borrowed by the borrower it is held for |
+| Written-off items | Returning or editing an item to Destroy cancels its holds and notifies those borrowers |
+| Ready holds | Can be cancelled. If the item stops being available, the hold returns to the front of the queue and gets a new collection period when the item is available again |
+| Library codes | The desk, the hold form and the kiosk all accept a code typed in lower case or with spaces (`Data/ItemLookupExtensions.cs`) |
+| Kiosk | Card look-ups and checkouts are rate limited |
+| REST API | Numeric or unknown `status` values return 400 |
+| CSV import | A file over 1 MB is answered with the importer's own message |
+| PDF export | Names in non-Latin scripts no longer fail the export and are drawn with installed fonts |
+| Layout | The menu has its own row for roles with many links and scrolls sideways on a phone; the Import form fits a 320 px screen |
+
+## Testing
 
 ```bash
 dotnet test Tests/LibraryManagementSystem.Tests.csproj
 ```
 
-Section 3 tests are in `Tests/NotificationAndQueueTests.cs`, `Tests/DueDateReminderServiceTests.cs` and `Tests/ReservationExpiryTests.cs`. Screenshots of the working features are in `docs/screenshots`, and the build log is in `docs/SECTION3_NOTES.md`.
+The project path is required; running `dotnet test` alone from the root builds the application but runs no tests.
 
-## Section 2: Public Kiosk, REST API and Data Import
+Most tests use the EF Core InMemory provider. Tests for concurrency, unique indexes and decimal totals use a temporary SQLite file, because the InMemory provider does not reproduce that behaviour.
 
-Author: Susan Acharya. Full notes: `docs/SECTION2_NOTES.md`. No database migration is needed for this section.
+## Suggested demonstration
 
-### Kiosk (no login)
-- **Where:** the **Kiosk** link in the menu, or `/kiosk/CEN` (Central), `/kiosk/NTH`, `/kiosk/RIV`.
-- **How:** type or scan a library card number (the **Borrowers** page shows each one, for example `P0005` is Priya Patel). The kiosk shows loans, fines and reservations. Scan or type an item code (for example `B003`) and tap **Borrow**.
-- **Rules:** same as the desk: only Available items held at that branch, items kept for another patron's hold are refused, loans are due in 14 days, and a Borrowed notification is sent. The kiosk signs out after 60 seconds idle.
+1. Open public search on a phone-sized browser window.
+2. Log in as Admin and create one Book, one Music item and one Toy, or import several with **Import**.
+3. Log in as Reception, create a borrower and borrow an item using its library code.
+4. Show that its status changes from Available to Borrowed, and the Borrowed message under **Notifications**.
+5. Place a hold on it for another borrower, then return it and show the hold become Ready.
+6. For a late-fine demonstration, return one of the seeded loans that is already overdue rather than modifying the database.
+7. Request, dispatch and receive a transfer between two branches.
+8. Open the **Kiosk**, enter a card number and borrow an item.
+9. Log in as Manager and show the dashboard, the three reports and their CSV and PDF exports.
+10. Call the REST API with an API key.
 
-### REST API (read-only, API key)
-- **Endpoints:** `GET /api/v1/items`, `/api/v1/items/{libraryCode}`, `/api/v1/categories`, `/api/v1/status`.
-- **Try it:**
+## GitHub workflow
 
-```bash
-curl -H "X-Api-Key: demo-public-api-key-change-me" "http://localhost:5190/api/v1/items?type=toy&availableOnly=true"
-```
+- `main` holds integrated, working code and changes only through pull requests.
+- Work is done on `feature/<description>` or `fix/<description>` branches created from the latest `main`.
+- Before a pull request: merge `origin/main` into the branch, build, and run the full test suite.
+- Do not commit `bin/`, `obj/` or `library.db`. They are tracked from the original commit and show as modified after every build; stage named source paths instead of `git add .`.
+- Migrations: merge `main` before creating one. If another migration reaches `main` first, remove yours, merge, and create it again.
 
-- Needs the `X-Api-Key` header (change keys in `appsettings.json`), allows 60 requests per minute per client and GET only. Full reference: `docs/SECTION2_API.md`.
+## Known limitations
 
-### CSV import (Admin)
-1. Log in as `admin` / `Admin123!` and open **Import**.
-2. Click **Download template**, or use `docs/samples/items-import-valid.csv`.
-3. Upload with **Check the file only** ticked to see a line-by-line report without saving.
-4. Upload again without it ticked to import. Try `docs/samples/items-import-with-errors.csv` to see the validation messages.
+- The project targets .NET 8; the assignment requires .NET 10. The upgrade has not been done or tested.
+- Installation has not yet been tested on the designated virtual machine.
+- **Kiosk sign-in uses the card number only.** The number is derived from the borrower Id, so it can be guessed. Rate limiting slows guessing, but anyone who knows a number can see that patron's loans and fines and borrow on their card. A PIN or card secret needs a database migration.
+- Fines cannot be paid, items cannot be returned and holds cannot be placed at the kiosk.
+- API keys live in configuration; there is no key management page. The rate limiters are in memory, which suits one server instance.
+- CSV import adds items only (no update) and accepts UTF-8 only.
+- Notifications are simulated: they are stored and written to the console, not sent.
+- Due-date reminders and hold expiry are started by staff buttons, not by a scheduled job.
+- PDF reports draw non-Latin text with fonts installed on the machine. A character no installed font contains appears as a placeholder box.
+- Transfers move one item at a time. An item returned at another branch stays there until a transfer is requested.
+- Fines record a paid/unpaid flag only; there are no payment dates or transactions.
+- An Admin can still set an item's status by hand (baseline behaviour). The Inventory health report flags any item whose status disagrees with its loan record.
+- Reports aggregate in memory, which suits a library of this size.
+- An unknown record ID returns a plain 404 response.
+- `bin/`, `obj/` and `library.db` are tracked in Git.
 
-### Documents
-`docs/SECTION2_REQUIREMENTS.md`, `docs/SECTION2_USER_GUIDE.md`, `docs/SECTION2_API.md`, `docs/SECTION2_USER_JOURNEYS.md`, `docs/SECTION2_NOTES.md`.
+## Further documentation
 
-### Tests
-Section 2 tests are in `Tests/KioskServiceTests.cs`, `Tests/KioskControllerTests.cs`, `Tests/CatalogueApiTests.cs` and `Tests/ItemImportServiceTests.cs`. Run `dotnet test Tests/LibraryManagementSystem.Tests.csproj`.
+| Document | Contents |
+|---|---|
+| [`docs/SECTION1_MULTIBRANCH_ANALYTICS.md`](docs/SECTION1_MULTIBRANCH_ANALYTICS.md) | Section 1 design, business rules, testing, integration notes for Sections 2 and 3 |
+| [`docs/SECTION2_REQUIREMENTS.md`](docs/SECTION2_REQUIREMENTS.md) | Section 2 requirements |
+| [`docs/SECTION2_USER_GUIDE.md`](docs/SECTION2_USER_GUIDE.md) | Kiosk, API and import user guide |
+| [`docs/SECTION2_API.md`](docs/SECTION2_API.md) | REST API reference |
+| [`docs/SECTION2_USER_JOURNEYS.md`](docs/SECTION2_USER_JOURNEYS.md) | Section 2 user journey maps |
+| [`docs/SECTION2_NOTES.md`](docs/SECTION2_NOTES.md) | Section 2 decisions, shared files and known limitations |
+| [`docs/SECTION3_NOTES.md`](docs/SECTION3_NOTES.md) | Section 3 build log |
+| [`PROGRAMMERS_LOG.md`](PROGRAMMERS_LOG.md) | Assignment 2 development log |
+
+The group's project-management documents (project plan, task allocation, repository management and installation guide) are kept on a separate documentation branch and are not part of this branch yet.
