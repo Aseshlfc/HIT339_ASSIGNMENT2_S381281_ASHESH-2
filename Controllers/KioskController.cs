@@ -1,7 +1,9 @@
 using LibraryManagementSystem.Models;
 using LibraryManagementSystem.Services;
 using LibraryManagementSystem.ViewModels;
+using LibraryManagementSystem.Api;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using LibraryManagementSystem.Data;
 
@@ -49,6 +51,7 @@ public class KioskController : Controller
 
     [HttpPost("{branchCode}/account")]
     [ValidateAntiForgeryToken]
+    [EnableRateLimiting(KioskOptions.PolicyName)]
     public async Task<IActionResult> Account(string branchCode, KioskCardForm form)
     {
         var branch = await FindBranchAsync(branchCode);
@@ -76,6 +79,7 @@ public class KioskController : Controller
 
     [HttpPost("{branchCode}/checkout")]
     [ValidateAntiForgeryToken]
+    [EnableRateLimiting(KioskOptions.PolicyName)]
     public async Task<IActionResult> Checkout(string branchCode, KioskCheckoutForm form)
     {
         var branch = await FindBranchAsync(branchCode);
