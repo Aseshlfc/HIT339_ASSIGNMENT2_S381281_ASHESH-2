@@ -169,6 +169,15 @@ public class ItemsController : Controller
         if (_reservations != null && previousStatus != ItemStatus.Available && item.Status == ItemStatus.Available)
             await _reservations.NotifyNextInQueueAsync(item);
 
+        // An item being kept for a borrower that is no longer on the shelf (for example marked
+        // Damaged) cannot be collected: the hold goes back to the front of the queue.
+        if (_reservations != null && previousStatus == ItemStatus.Available && item.Status != ItemStatus.Available)
+            await _reservations.ReleaseReadyHoldsAsync(item);
+
+        // An Admin writing an item off closes its holds, so no borrower is left waiting for it.
+        if (_reservations != null && previousStatus != ItemStatus.Destroy && item.Status == ItemStatus.Destroy)
+            await _reservations.CloseHoldsForDestroyedItemAsync(item);
+
         return RedirectToAction(nameof(Index));
     }
 

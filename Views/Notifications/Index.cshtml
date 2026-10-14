@@ -37,7 +37,7 @@
                         @n.Channel
                     </td>
                     <td>
-                        <span class="status @(n.Type == NotificationType.FineIssued ? "status-damaged" : "status-available")">@n.Type</span>
+                        <span class="status @(n.Type is NotificationType.FineIssued or NotificationType.ReservationExpired or NotificationType.ReservationCancelled or NotificationType.ReservationDelayed ? "status-damaged" : "status-available")">@n.Type</span>
                     </td>
                     <td>@n.Message</td>
                 </tr>
