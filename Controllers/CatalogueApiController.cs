@@ -65,7 +65,10 @@ public class CatalogueApiController : ControllerBase
 
         if (!string.IsNullOrWhiteSpace(status))
         {
-            if (!Enum.TryParse<ItemStatus>(status.Trim(), ignoreCase: true, out var wanted) || wanted == ItemStatus.Destroy)
+            // Names only: Enum.TryParse would also accept numbers such as "1" or "99".
+            if (status.Trim().All(c => char.IsDigit(c) || c == '-' || c == '+') ||
+                !Enum.TryParse<ItemStatus>(status.Trim(), ignoreCase: true, out var wanted) ||
+                !Enum.IsDefined(wanted) || wanted == ItemStatus.Destroy)
                 return BadRequestProblem("status must be Available, Borrowed, Damaged or InTransit.");
             query = query.Where(i => i.Status == wanted);
         }
