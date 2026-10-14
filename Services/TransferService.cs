@@ -79,6 +79,14 @@ public class TransferService : ITransferService
     private readonly LibraryContext _db;
     public TransferService(LibraryContext db) => _db = db;
 
+    private const string HeldMessage =
+        "This item is reserved for a borrower and cannot be transferred until the hold is collected, cancelled or expired.";
+
+    // An Available item with a Waiting or Ready hold is being kept at this branch for a borrower.
+    private Task<bool> HasActiveHoldAsync(int itemId) =>
+        _db.Reservations.AnyAsync(r => r.ItemId == itemId &&
+            (r.Status == ReservationStatus.Waiting || r.Status == ReservationStatus.Ready));
+
     public Task<ItemTransfer?> GetOpenTransferForItemAsync(int itemId)
         => _db.ItemTransfers.AsNoTracking()
             .Include(t => t.FromBranch)
@@ -103,6 +111,9 @@ public class TransferService : ITransferService
         // Guards against the item being marked Available while a loan is still open.
         if (await _db.Loans.AnyAsync(l => l.ItemId == itemId && l.ReturnedAt == null))
             return TransferResult.Fail("This item still has an open loan and cannot be transferred until it is returned.");
+
+        if (await HasActiveHoldAsync(itemId))
+            return TransferResult.Fail(HeldMessage);
 
         var fromBranch = await _db.Branches.SingleOrDefaultAsync(b => b.Id == item.BranchId);
         if (fromBranch == null) return TransferResult.Fail("The item's current branch could not be found.");
@@ -157,6 +168,9 @@ public class TransferService : ITransferService
             return TransferResult.Fail($"This item is currently {item.Status.Label()} and cannot be dispatched.");
         if (await _db.Loans.AnyAsync(l => l.ItemId == item.Id && l.ReturnedAt == null))
             return TransferResult.Fail("This item still has an open loan and cannot be dispatched.");
+        // A hold placed after the transfer was requested: the item must stay for that borrower.
+        if (await HasActiveHoldAsync(item.Id))
+            return TransferResult.Fail(HeldMessage);
 
         // Item.Status is a concurrency token, so a borrow that lands between
         // the check above and this save makes the save fail instead of sending
