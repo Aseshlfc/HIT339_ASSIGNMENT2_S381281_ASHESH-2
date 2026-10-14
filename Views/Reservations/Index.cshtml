@@ -3,6 +3,7 @@
 @{
     ViewData["Title"] = "Reservations";
     var positions = (Dictionary<int, int>)ViewBag.QueuePositions;
+    var deskBranchId = ViewBag.DeskBranchId as int?;
 }
 <div class="page-heading">
     <div><h1>Reservations</h1><p>Holds on borrowed or damaged items, in queue order. Ready holds are kept for @ReservationService.HoldDays days.</p></div>
@@ -15,19 +16,26 @@
 </div>
 <div class="table-wrap">
     <table>
-        <thead><tr><th>Item</th><th>Borrower</th><th>Item status</th><th>Hold status</th><th>Queue position</th><th>Placed</th><th>Actions</th></tr></thead>
+        <thead><tr><th>Item</th><th>Held at</th><th>Borrower</th><th>Item status</th><th>Hold status</th><th>Queue position</th><th>Placed</th><th>Actions</th></tr></thead>
         <tbody>
             @foreach (var r in Model)
             {
                 <tr>
                     <td>@r.Item.Name <small>(@r.Item.LibraryCode)</small></td>
+                    <td>
+                        <i class="bi bi-geo-alt" aria-hidden="true"></i> @(r.Item.Branch?.Name ?? "Unknown branch")
+                        @if (deskBranchId.HasValue && r.Item.BranchId != deskBranchId)
+                        {
+                            <br /><small>Not at this desk's branch</small>
+                        }
+                    </td>
                     <td>@r.Borrower.FullName</td>
                     <td>@r.Item.Status</td>
                     <td><span class="status @(r.Status == ReservationStatus.Ready ? "status-available" : "")">@r.Status</span></td>
                     <td>@(positions.TryGetValue(r.Id, out var position) ? $"#{position}" : "—")</td>
                     <td>@r.CreatedAt.ToLocalTime().ToString("dd MMM yyyy HH:mm")</td>
                     <td class="actions">
-                        @if (r.Status == ReservationStatus.Waiting)
+                        @if (r.Status == ReservationStatus.Waiting || r.Status == ReservationStatus.Ready)
                         {
                             <form asp-action="Cancel" asp-route-id="@r.Id" method="post" class="inline-form">
                                 <button type="submit" class="action-btn action-btn-muted"><i class="bi bi-x-circle" aria-hidden="true"></i> Cancel</button>
@@ -43,7 +51,7 @@
             @if (!Model.Any())
             {
                 <tr>
-                    <td colspan="7">
+                    <td colspan="8">
                         <div class="empty-state">
                             <i class="bi bi-bookmark-x" aria-hidden="true"></i>
                             <strong>No active holds</strong>
