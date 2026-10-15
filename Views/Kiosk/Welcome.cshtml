@@ -5,23 +5,117 @@
     Layout = "_KioskLayout";
 }
 <section class="kiosk-panel kiosk-welcome">
-    <h1>Welcome</h1>
-    <p class="kiosk-lead">Scan your library card, or type your card number, to borrow items and see your account.</p>
+    <h1>Welcome to @Model.Branch.Name</h1>
+    <p class="kiosk-lead">Sign in to borrow items and check your loans, fines and reservations.</p>
+
+    @if (Model.SignedOut)
+    {
+        <div class="kiosk-message kiosk-success" role="status"><i class="bi bi-check-circle-fill" aria-hidden="true"></i> You have signed out. Thank you for visiting.</div>
+    }
 
     @if (Model.Error != null)
     {
         <div class="kiosk-message kiosk-error" role="alert"><i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i> @Model.Error</div>
     }
 
-    <form method="post" asp-action="Account" asp-route-branchCode="@Model.Branch.Code" class="kiosk-form">
-        <label for="CardNumber" class="kiosk-label">Library card number</label>
-        <div class="kiosk-input-row">
-            <i class="bi bi-upc-scan" aria-hidden="true"></i>
-            <input id="CardNumber" name="CardNumber" value="@Model.CardNumber" autofocus autocomplete="off"
-                   autocapitalize="characters" spellcheck="false" enterkeyhint="go" placeholder="e.g. P0001" />
+    <div class="kiosk-welcome-body">
+    @* novalidate: the script below checks the fields and explains problems next to them, in
+       the kiosk's own words. Without the script the server still checks everything. *@
+    <form method="post" asp-action="OpenAccount" asp-route-branchCode="@Model.Branch.Code" class="kiosk-form kiosk-signin" id="kioskSignIn" autocomplete="off" novalidate>
+        <input type="hidden" name="SignInToken" value="@Model.SignInToken" />
+
+        <div class="kiosk-field">
+            <label for="CardNumber" class="kiosk-label"><span class="kiosk-step" aria-hidden="true">1</span> Library card number</label>
+            <p class="kiosk-field-hint" id="cardHint">Type the number printed on your library card, for example P0005. If this kiosk has a card scanner, you can scan your card instead.</p>
+            <div class="kiosk-input-row">
+                <i class="bi bi-credit-card-2-front" aria-hidden="true"></i>
+                <input id="CardNumber" name="CardNumber" value="@Model.CardNumber" autofocus autocomplete="off" required
+                       autocapitalize="characters" spellcheck="false" enterkeyhint="next" aria-describedby="cardHint cardError" />
+            </div>
+            <p class="kiosk-field-error" id="cardError" aria-live="polite"></p>
         </div>
-        <button type="submit" class="kiosk-btn"><i class="bi bi-arrow-right-circle-fill" aria-hidden="true"></i> Continue</button>
+
+        <div class="kiosk-field">
+            <label for="Pin" class="kiosk-label"><span class="kiosk-step" aria-hidden="true">2</span> 6-digit PIN</label>
+            <p class="kiosk-field-hint" id="pinHint">The PIN library staff set up for your card. It stays hidden as you type.</p>
+            <div class="kiosk-input-row">
+                <i class="bi bi-key-fill" aria-hidden="true"></i>
+                @* A real password box, so every browser masks it. autocomplete="new-password" stops
+                   Chrome, Edge and Firefox filling in a saved login (such as a staff password). *@
+                <input id="Pin" name="Pin" type="password" class="pin-input" inputmode="numeric" pattern="[0-9]{6}" minlength="6" maxlength="6"
+                       autocomplete="new-password" autocorrect="off" autocapitalize="off" spellcheck="false" required enterkeyhint="go" aria-describedby="pinHint pinError" />
+            </div>
+            <p class="kiosk-field-error" id="pinError" aria-live="polite"></p>
+        </div>
+
+        <button type="submit" class="kiosk-btn kiosk-btn-wide" id="signInButton"><i class="bi bi-box-arrow-in-right" aria-hidden="true"></i> <span>Sign in</span></button>
     </form>
 
-    <p class="kiosk-hint">A barcode scanner types the number for you and presses Enter automatically.</p>
+    <div class="kiosk-welcome-side">
+    <aside class="kiosk-help" aria-labelledby="helpTitle">
+        <i class="bi bi-info-circle-fill" aria-hidden="true"></i>
+        <div>
+            <h2 id="helpTitle">First time here, or forgotten your PIN?</h2>
+            <p>Please ask at the <strong>Reception desk</strong>. Staff can set up or reset your PIN in a minute. Bring your library card.</p>
+        </div>
+    </aside>
+
+    <partial name="_BackToMainSite" />
+    </div>
+    </div>
 </section>
+
+@section Scripts {
+<script>
+    // Each welcome screen can sign in once. If the browser brings back an old copy
+    // (Back button), or this screen has been waiting a long time, load a fresh one.
+    (function () {
+        window.addEventListener('pageshow', function (e) {
+            if (e.persisted) window.location.reload();
+        });
+        const form = document.getElementById('kioskSignIn');
+        const card = document.getElementById('CardNumber');
+        const pin = document.getElementById('Pin');
+        const button = document.getElementById('signInButton');
+
+        function setError(input, id, message) {
+            document.getElementById(id).textContent = message;
+            if (message) input.setAttribute('aria-invalid', 'true'); else input.removeAttribute('aria-invalid');
+        }
+
+        // A scanner that acts as a keyboard types the card number and presses Enter:
+        // move on to the PIN instead of submitting half a form.
+        card.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter' && pin.value === '') { e.preventDefault(); pin.focus(); }
+        });
+        card.addEventListener('input', function () { setError(card, 'cardError', ''); });
+        // PINs are digits only; anything else typed on a full keyboard is dropped.
+        pin.addEventListener('input', function () {
+            const digits = pin.value.replace(/[^0-9]/g, '');
+            if (digits !== pin.value) pin.value = digits;
+            setError(pin, 'pinError', '');
+        });
+
+        form.addEventListener('submit', function (e) {
+            let first = null;
+            if (card.value.trim() === '') {
+                setError(card, 'cardError', 'Enter the number on your library card.');
+                first = card;
+            }
+            if (!/^[0-9]{6}$/.test(pin.value)) {
+                setError(pin, 'pinError', pin.value === '' ? 'Enter your 6-digit PIN.' : 'Your PIN has exactly 6 digits. You have entered ' + pin.value.length + '.');
+                first = first || pin;
+            }
+            if (first) { e.preventDefault(); first.focus(); return; }
+            // One tap is enough: a second would be refused as an already-used form.
+            button.disabled = true;
+            button.querySelector('span').textContent = 'Signing in…';
+        });
+
+        if (card.value !== '') pin.focus();
+        setInterval(function () {
+            if (card.value === '') window.location.reload();
+        }, 30 * 60 * 1000);
+    })();
+</script>
+}

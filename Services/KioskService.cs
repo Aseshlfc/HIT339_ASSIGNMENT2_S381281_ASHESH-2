@@ -57,11 +57,13 @@ public class KioskService : IKioskService
 {
     private readonly LibraryContext _db;
     private readonly INotificationService _notifications;
+    private readonly IReservationService _reservations;
 
-    public KioskService(LibraryContext db, INotificationService notifications)
+    public KioskService(LibraryContext db, INotificationService notifications, IReservationService? reservations = null)
     {
         _db = db;
         _notifications = notifications;
+        _reservations = reservations ?? new ReservationService(db, notifications);
     }
 
     public async Task<Borrower?> FindPatronAsync(string? cardNumber)
@@ -141,7 +143,7 @@ public class KioskService : IKioskService
         if (string.IsNullOrEmpty(code))
             return new KioskCheckoutResult(false, "Scan or type the library code printed on the item.");
 
-        var item = await FindItemAsync(code);
+        var item = await _db.FindItemByCodeAsync(code);
         if (item == null)
             return new KioskCheckoutResult(false, $"No item was found with the code \"{code}\". Check the code and try again.");
 
@@ -156,10 +158,12 @@ public class KioskService : IKioskService
                 $"\"{item.Name}\" is held at {heldAt ?? "another branch"}, not {kioskBranch.Name}. Ask library staff about a transfer.");
         }
 
-        var readyHold = await _db.Reservations
-            .FirstOrDefaultAsync(r => r.ItemId == item.Id && r.Status == ReservationStatus.Ready);
-        if (readyHold != null && readyHold.BorrowerId != patron.Id)
+        // Same hold rule as the reception desk: an item with a reservation queue
+        // is kept for the first borrower in that queue.
+        var holdCheck = await _reservations.CheckBorrowAsync(item, patron.Id);
+        if (!holdCheck.Allowed)
             return new KioskCheckoutResult(false, $"\"{item.Name}\" is being held for another patron who reserved it.");
+        var readyHold = holdCheck.HoldToFulfil;
 
         var now = DateTime.Now;
         var loan = new Loan
@@ -192,15 +196,5 @@ public class KioskService : IKioskService
 
         return new KioskCheckoutResult(true,
             $"You borrowed \"{item.Name}\". Please return it by {loan.DueDate:dddd d MMMM yyyy}.", loan, item);
-    }
-
-    // Exact match first (codes are unique), then a case-insensitive match so a
-    // code typed as "b001" still finds B001. Two items that differ only by case
-    // are ambiguous and are treated as not found rather than guessed.
-    private async Task<Item?> FindItemAsync(string code)
-    {
-        var upper = code.ToUpperInvariant();
-        var matches = await _db.Items.Where(i => i.LibraryCode.ToUpper() == upper).Take(2).ToListAsync();
-        return matches.FirstOrDefault(i => i.LibraryCode == code) ?? (matches.Count == 1 ? matches[0] : null);
     }
 }

@@ -14,30 +14,46 @@
         _ => "bi-bookmark"
     };
 }
-<section class="kiosk-panel kiosk-account" data-idle-seconds="60" data-idle-url="@Url.Action("Welcome", new { branchCode = Model.Branch.Code })">
+<section class="kiosk-panel kiosk-account" data-idle-seconds="60">
     <div class="kiosk-hello">
-        <h1>Hello, @firstName</h1>
-        <span class="kiosk-card-tag"><i class="bi bi-credit-card-2-front" aria-hidden="true"></i> Card @account.CardNumber</span>
+        <div class="kiosk-hello-name">
+            <h1>Hello, @firstName</h1>
+            <span class="kiosk-card-tag"><i class="bi bi-credit-card-2-front" aria-hidden="true"></i> Card ending @(account.CardNumber[^2..])</span>
+        </div>
+        @* Submits the same sign-out form as the button at the bottom, so the session
+           ends on the server; a patron with many loans need not scroll to leave. *@
+        <button type="submit" form="kioskFinish" class="kiosk-btn kiosk-btn-secondary kiosk-btn-compact">
+            <i class="bi bi-box-arrow-right" aria-hidden="true"></i> Finish and sign out
+        </button>
     </div>
 
     @if (Model.Message != null)
     {
         <div class="kiosk-message @(Model.MessageIsError ? "kiosk-error" : "kiosk-success")" role="alert">
-            <i class="bi @(Model.MessageIsError ? "bi-exclamation-triangle-fill" : "bi-check-circle-fill")" aria-hidden="true"></i> @Model.Message
+            <i class="bi @(Model.MessageIsError ? "bi-exclamation-triangle-fill" : "bi-check-circle-fill")" aria-hidden="true"></i>
+            <span>@Model.Message
+                @if (!Model.MessageIsError)
+                {
+                    <small class="kiosk-message-next">Borrow another item below, or finish and sign out when you are done.</small>
+                }
+            </span>
         </div>
     }
 
     <div class="kiosk-card">
         <h2><i class="bi bi-box-arrow-in-right" aria-hidden="true"></i> Borrow an item</h2>
-        <form method="post" asp-action="Checkout" asp-route-branchCode="@Model.Branch.Code" class="kiosk-form">
-            <input type="hidden" name="CardNumber" value="@account.CardNumber" />
-            <label for="LibraryCode" class="kiosk-label">Scan or type the library code on the item</label>
-            <div class="kiosk-input-row">
-                <i class="bi bi-upc-scan" aria-hidden="true"></i>
-                <input id="LibraryCode" name="LibraryCode" value="@Model.LibraryCode" autofocus autocomplete="off"
-                       autocapitalize="characters" spellcheck="false" enterkeyhint="go" placeholder="e.g. B001" />
+        <form method="post" asp-action="Checkout" asp-route-branchCode="@Model.Branch.Code" class="kiosk-form" id="kioskBorrow" novalidate>
+            <div class="kiosk-field">
+                <label for="LibraryCode" class="kiosk-label">Library code on the item</label>
+                <p class="kiosk-field-hint" id="codeHint">Type the code printed on the item's label, for example B003. If this kiosk has a scanner, you can scan the label instead.</p>
+                <div class="kiosk-input-row">
+                    <i class="bi bi-upc" aria-hidden="true"></i>
+                    <input id="LibraryCode" name="LibraryCode" value="@Model.LibraryCode" autofocus autocomplete="off" required
+                           autocapitalize="characters" spellcheck="false" enterkeyhint="go" aria-describedby="codeHint codeError" />
+                </div>
+                <p class="kiosk-field-error" id="codeError" aria-live="polite"></p>
             </div>
-            <button type="submit" class="kiosk-btn"><i class="bi bi-journal-check" aria-hidden="true"></i> Borrow</button>
+            <button type="submit" class="kiosk-btn" id="borrowButton"><i class="bi bi-journal-check" aria-hidden="true"></i> <span>Borrow</span></button>
         </form>
         <p class="kiosk-hint">Loans last @LibraryRules.LoanDays days. Late items cost $@LibraryRules.FinePerLateDay.ToString("0.00") per day. Only items held at @Model.Branch.Name can be borrowed here.</p>
     </div>
@@ -134,9 +150,12 @@
     }
 
     <div class="kiosk-done">
-        <a class="kiosk-btn kiosk-btn-secondary" asp-action="Welcome" asp-route-branchCode="@Model.Branch.Code">
-            <i class="bi bi-box-arrow-right" aria-hidden="true"></i> Finish and sign out
-        </a>
+        <form method="post" asp-action="Finish" asp-route-branchCode="@Model.Branch.Code" id="kioskFinish">
+            <button type="submit" class="kiosk-btn kiosk-btn-secondary">
+                <i class="bi bi-box-arrow-right" aria-hidden="true"></i> Finish and sign out
+            </button>
+        </form>
+        <p class="kiosk-hint kiosk-privacy">For your privacy, the kiosk signs you out after 1 minute without use.</p>
         <span class="kiosk-idle" id="kioskIdle" aria-live="polite"></span>
     </div>
 </section>
@@ -144,12 +163,13 @@
 @section Scripts {
 <script>
     // Signs the patron out after a minute without touching the screen, so the
-    // next person never sees the previous person's account.
+    // next person never sees the previous person's account. Signing out goes through
+    // the same form as the Finish button, so the session also ends on the server.
     (function () {
         const panel = document.querySelector('[data-idle-seconds]');
         if (!panel) return;
         const limit = parseInt(panel.dataset.idleSeconds, 10);
-        const url = panel.dataset.idleUrl;
+        const finish = document.getElementById('kioskFinish');
         const label = document.getElementById('kioskIdle');
         let left = limit;
         function show() { label.textContent = left <= 15 ? 'Signing out in ' + left + ' seconds' : ''; }
@@ -159,8 +179,30 @@
         setInterval(function () {
             left -= 1;
             show();
-            if (left <= 0) window.location.href = url;
+            if (left === 0) finish.submit();
         }, 1000);
+        // Explain an empty code next to the box, and stop a second tap borrowing twice.
+        const borrow = document.getElementById('kioskBorrow');
+        const code = document.getElementById('LibraryCode');
+        const codeError = document.getElementById('codeError');
+        code.addEventListener('input', function () { codeError.textContent = ''; code.removeAttribute('aria-invalid'); });
+        borrow.addEventListener('submit', function (e) {
+            if (code.value.trim() === '') {
+                e.preventDefault();
+                codeError.textContent = 'Enter the library code on the item.';
+                code.setAttribute('aria-invalid', 'true');
+                code.focus();
+                return;
+            }
+            const button = document.getElementById('borrowButton');
+            button.disabled = true;
+            button.querySelector('span').textContent = 'Borrowing…';
+        });
+        // If the browser restores this page from its back/forward cache, ask the
+        // server again: after sign-out that sends the browser to the welcome screen.
+        window.addEventListener('pageshow', function (e) {
+            if (e.persisted) window.location.reload();
+        });
     })();
 </script>
 }

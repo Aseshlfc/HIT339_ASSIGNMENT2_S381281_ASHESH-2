@@ -28,17 +28,28 @@ builder.Services.AddScoped<IDueDateReminderService, DueDateReminderService>();
 
 // Section 2: self-service kiosk, CSV import and the public read-only API.
 builder.Services.AddScoped<IKioskService, KioskService>();
+builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddSingleton<IKioskSessionStore, KioskSessionStore>();
+builder.Services.AddScoped<IKioskPinService, KioskPinService>();
 builder.Services.AddScoped<IItemImportService, ItemImportService>();
 builder.Services.Configure<PublicApiOptions>(builder.Configuration.GetSection(PublicApiOptions.SectionName));
 builder.Services.AddScoped<ApiKeyFilter>();
 builder.Services.AddRateLimiter(limiter =>
 {
     limiter.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
-    limiter.OnRejected = (context, _) =>
+    limiter.OnRejected = async (context, cancellationToken) =>
     {
         if (context.Lease.TryGetMetadata(MetadataName.RetryAfter, out var retryAfter))
             context.HttpContext.Response.Headers.RetryAfter = ((int)Math.Ceiling(retryAfter.TotalSeconds)).ToString();
-        return ValueTask.CompletedTask;
+
+        // The kiosk is used by people, not programs, so it gets a readable message.
+        if (context.HttpContext.Request.Path.StartsWithSegments("/kiosk"))
+        {
+            context.HttpContext.Response.ContentType = "text/plain; charset=utf-8";
+            await context.HttpContext.Response.WriteAsync(
+                "Too many attempts from this kiosk. Please wait a minute and try again, or ask library staff for help.",
+                cancellationToken);
+        }
     };
     // Limited per client address, not per API key: a caller trying many wrong keys
     // would otherwise get a fresh allowance for every guess.
@@ -55,7 +66,24 @@ builder.Services.AddRateLimiter(limiter =>
                 QueueLimit = 0
             });
     });
+    // The kiosk has no staff login and card numbers are short, so card look-ups and
+    // checkouts are limited per client address to slow down guessing card numbers.
+    limiter.AddPolicy(KioskOptions.PolicyName, httpContext =>
+    {
+        var perMinute = httpContext.RequestServices
+            .GetRequiredService<Microsoft.Extensions.Options.IOptions<KioskOptions>>().Value.RequestsPerMinute;
+        return RateLimitPartition.GetFixedWindowLimiter(
+            httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = Math.Max(1, perMinute),
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0
+            });
+    });
 });
+
+builder.Services.Configure<KioskOptions>(builder.Configuration.GetSection(KioskOptions.SectionName));
 
 builder.Services.ConfigureApplicationCookie(options =>
 {

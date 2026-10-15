@@ -5,7 +5,7 @@
 }
 <section class="kiosk-panel">
     <h1>Self-service kiosk</h1>
-    <p class="kiosk-lead">Which branch is this kiosk in?</p>
+    <p class="kiosk-lead">Choose the library you are visiting today.</p>
     @if (Model.Count == 0)
     {
         <div class="kiosk-message kiosk-error"><i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i> There are no active branches. Please ask library staff.</div>
@@ -18,5 +18,8 @@
             </a>
         }
     </div>
-    <p class="kiosk-hint">Staff: bookmark <code>/kiosk/&lt;branch code&gt;</code> on each kiosk so it opens at the right branch.</p>
+    @* Staff set each kiosk to open at its branch (/kiosk/<branch code>); that instruction
+       lives in the Section 2 user guide, not on the patron's screen. *@
+
+    <partial name="_BackToMainSite" />
 </section>

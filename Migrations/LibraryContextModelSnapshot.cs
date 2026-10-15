@@ -107,6 +107,18 @@ namespace LibraryManagementSystem.Migrations
                         .HasMaxLength(120)
                         .HasColumnType("TEXT");
 
+                    b.Property<int>("KioskPinFailedAttempts")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("KioskPinHash")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("KioskPinLockedUntilUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("KioskPinSetAtUtc")
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("Phone")
                         .IsRequired()
                         .HasMaxLength(30)

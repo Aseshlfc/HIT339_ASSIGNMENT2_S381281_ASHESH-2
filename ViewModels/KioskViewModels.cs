@@ -7,12 +7,20 @@ namespace LibraryManagementSystem.ViewModels;
 public class KioskCardForm
 {
     public string? CardNumber { get; set; }
+
+    /// <summary>The 6-digit kiosk PIN, kept as text so leading zeros count. Never echoed back.</summary>
+    public string? Pin { get; set; }
+
+    /// <summary>One-time token from the welcome screen; a replayed form is refused.</summary>
+    public string? SignInToken { get; set; }
 }
 
-/// <summary>Posted from the account screen to borrow one item.</summary>
+/// <summary>
+/// Posted from the account screen to borrow one item. There is deliberately no card
+/// number: the patron always comes from the server-side kiosk session.
+/// </summary>
 public class KioskCheckoutForm
 {
-    public string? CardNumber { get; set; }
     public string? LibraryCode { get; set; }
 }
 
@@ -21,6 +29,10 @@ public class KioskWelcomeViewModel
     public required Branch Branch { get; init; }
     public string? CardNumber { get; init; }
     public string? Error { get; init; }
+    public required string SignInToken { get; init; }
+
+    /// <summary>True when the patron has just finished, or the idle timer signed them out.</summary>
+    public bool SignedOut { get; init; }
 }
 
 public class KioskAccountViewModel
@@ -34,4 +46,16 @@ public class KioskAccountViewModel
 
     /// <summary>Echoed back into the code box after a failed attempt.</summary>
     public string? LibraryCode { get; init; }
+}
+
+/// <summary>Posted by staff to set or reset a patron's kiosk PIN.</summary>
+public class KioskPinForm
+{
+    public string? Pin { get; set; }
+    public string? ConfirmPin { get; set; }
+}
+
+public class KioskPinViewModel
+{
+    public required Borrower Borrower { get; init; }
 }

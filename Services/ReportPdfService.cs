@@ -25,7 +25,56 @@ public class ReportPdfService : IReportPdfService
     static ReportPdfService()
     {
         QuestPDF.Settings.License = LicenseType.Community;
+        // Item and borrower names are free text in any language. The report font (Lato)
+        // only covers Latin, Greek and Cyrillic, so fonts installed on the machine are used
+        // as fallbacks for other scripts (see FontFamilies).
+        QuestPDF.Settings.UseSystemFonts = true;
+        QuestPDF.Settings.ThrowOnMissingFontFamilies = false;
+        // If no installed font has a character either, it is drawn as a placeholder box
+        // instead of failing the whole export.
+        QuestPDF.Settings.ThrowOnMissingTextGlyphs = false;
     }
+
+    private const string ReportFont = "Lato";
+
+    // Fonts that ship with Windows, macOS and common Linux desktops, covering Chinese,
+    // Japanese, Korean, Devanagari and other Indic scripts, Thai, Arabic, Hebrew and emoji.
+    // Only the ones actually installed are used, in this order.
+    private static readonly string[] FallbackCandidates =
+    [
+        // Japanese, Chinese, Korean
+        "Yu Gothic", "Meiryo", "Microsoft YaHei", "Microsoft JhengHei", "Malgun Gothic",
+        "Hiragino Sans", "Hiragino Kaku Gothic ProN", "PingFang SC", "Apple SD Gothic Neo",
+        "Noto Sans CJK JP", "Noto Sans CJK SC", "Noto Sans CJK KR", "Noto Sans JP", "WenQuanYi Micro Hei",
+        // Indic, Thai, Arabic, Hebrew and general
+        "Nirmala UI", "Kohinoor Devanagari", "Devanagari Sangam MN", "Noto Sans Devanagari",
+        "Leelawadee UI", "Thonburi", "Noto Sans Thai",
+        "Segoe UI", "Geeza Pro", "Noto Sans Arabic", "Arial Unicode MS", "Arial", "Noto Sans", "DejaVu Sans",
+        // Emoji and symbols
+        "Segoe UI Emoji", "Segoe UI Symbol", "Apple Color Emoji", "Noto Color Emoji"
+    ];
+
+    // Lato first, then every candidate that is installed. Worked out once: listing the
+    // system fonts takes a moment.
+    private static readonly Lazy<string[]> FontFamilies = new(() =>
+    {
+        var families = new List<string> { ReportFont };
+        try
+        {
+            var installed = new HashSet<string>(
+                QuestPDF.Drawing.FontManager.GetSystemFonts().Select(f => f.FamilyName),
+                StringComparer.OrdinalIgnoreCase);
+            families.AddRange(FallbackCandidates.Where(installed.Contains));
+        }
+        catch (Exception)
+        {
+            // The system fonts could not be listed: reports still render with Lato alone.
+        }
+        return families.ToArray();
+    });
+
+    /// <summary>The font families reports are drawn with on this machine, in fallback order.</summary>
+    public static IReadOnlyList<string> ActiveFontFamilies => FontFamilies.Value;
 
     public byte[] Render(ReportDocument report)
     {
@@ -35,7 +84,7 @@ public class ReportPdfService : IReportPdfService
             {
                 page.Size(PageSizes.A4.Landscape());
                 page.Margin(32);
-                page.DefaultTextStyle(t => t.FontSize(9).FontColor("#2A2117"));
+                page.DefaultTextStyle(t => t.FontFamily(FontFamilies.Value).FontSize(9).FontColor("#2A2117"));
 
                 page.Header().Element(c => Header(c, report));
                 page.Content().PaddingVertical(12).Element(c => Content(c, report));

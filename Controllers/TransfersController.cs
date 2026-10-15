@@ -18,11 +18,13 @@ public class TransfersController : Controller
 
     private readonly LibraryContext _db;
     private readonly ITransferService _transfers;
+    private readonly IReservationService? _reservations;
 
-    public TransfersController(LibraryContext db, ITransferService transfers)
+    public TransfersController(LibraryContext db, ITransferService transfers, IReservationService? reservations = null)
     {
         _db = db;
         _transfers = transfers;
+        _reservations = reservations;
     }
 
     public async Task<IActionResult> Index(string view = "open", int? branchId = null)
@@ -165,6 +167,12 @@ public class TransfersController : Controller
 
         var result = await action();
         TempData[result.Succeeded ? "Success" : "Error"] = result.Message;
+
+        // Receiving or cancelling a transfer can put the item back on the shelf.
+        // If borrowers are waiting for it, the first one is offered it now.
+        if (result.Succeeded && _reservations != null && result.Transfer?.Item is { Status: ItemStatus.Available } item)
+            await _reservations.NotifyNextInQueueAsync(item);
+
         return RedirectToAction(nameof(Details), new { id });
     }
 

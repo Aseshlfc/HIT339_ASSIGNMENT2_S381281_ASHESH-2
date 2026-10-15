@@ -627,3 +627,57 @@ th.num, td.num { white-space: nowrap; }
 .import-tag.import-bad { background: var(--danger-bg); color: var(--danger); }
 tr.import-bad td { background: #fdf6f5; }
 .import-messages { margin: 0; padding-left: 18px; color: var(--danger); }
+
+/* Integration: long checkbox labels and file pickers must not push a narrow phone screen sideways. */
+.form-card { grid-template-columns: minmax(0, 1fr); }
+.form-card .check-row { white-space: normal; }
+input[type="file"] { max-width: 100%; min-width: 0; }
+
+/* Integration: the menu now carries links from all three sections.
+   - Laptop and desktop: a role with many links gets the menu on its own full-width
+     row under the brand and user chip, instead of a ragged two-line wrap.
+   - Phone: the menu is one row that scrolls sideways (the active link is scrolled
+     into view by a small script in _Layout), instead of three or four stacked rows. */
+@media (min-width: 721px) {
+  .nav-wrap:has(nav a:nth-child(8)) { row-gap: 0; padding-top: 12px; }
+  .nav-wrap:has(nav a:nth-child(8)) .auth-links { margin-left: auto; }
+  .nav-wrap:has(nav a:nth-child(8)) nav {
+    order: 3; flex-basis: 100%; margin-top: 10px; padding: 6px 0 8px;
+    border-top: 1px solid rgba(255, 255, 255, 0.09);
+  }
+}
+@media (min-width: 721px) and (max-width: 1100px) {
+  .nav-wrap:has(nav a:nth-child(6)) { row-gap: 0; padding-top: 12px; }
+  .nav-wrap:has(nav a:nth-child(6)) .auth-links { margin-left: auto; }
+  .nav-wrap:has(nav a:nth-child(6)) nav {
+    order: 3; flex-basis: 100%; margin-top: 10px; padding: 6px 0 8px;
+    border-top: 1px solid rgba(255, 255, 255, 0.09);
+  }
+}
+@media (min-width: 721px) and (max-width: 900px) {
+  /* Tablet: once someone is signed in, the user chip leaves no room beside the brand,
+     so every role's menu gets its own row. */
+  .nav-wrap:has(.user-chip) { row-gap: 0; padding-top: 12px; }
+  .nav-wrap:has(.user-chip) .auth-links { margin-left: auto; }
+  .nav-wrap:has(.user-chip) nav {
+    order: 3; flex-basis: 100%; margin-top: 10px; padding: 6px 0 8px;
+    border-top: 1px solid rgba(255, 255, 255, 0.09);
+  }
+  /* Slightly tighter links so eight of them stay on one row. */
+  nav { gap: 2px; }
+  nav a { padding: 8px 9px; font-size: 0.9rem; }
+}
+@media (max-width: 720px) {
+  nav {
+    flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch;
+    scrollbar-width: none; padding-right: 28px;
+    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 30px), transparent);
+    mask-image: linear-gradient(to right, #000 calc(100% - 30px), transparent);
+  }
+  nav::-webkit-scrollbar { display: none; }
+  nav a { flex: 0 0 auto; white-space: nowrap; }
+}
+
+/* Kiosk PIN boxes (type="password", so every browser masks them). */
+.pin-input { letter-spacing: 0.3em; }
+.pin-status { white-space: nowrap; }

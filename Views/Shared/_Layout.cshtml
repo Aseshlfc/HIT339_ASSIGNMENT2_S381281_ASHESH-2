@@ -34,6 +34,10 @@
                 <a class="@NavClass("Notifications")" asp-controller="Notifications" asp-action="Index">Notifications</a>
                 <a class="@NavClass("Reservations")" asp-controller="Reservations" asp-action="Index">Reservations</a>
             }
+            @if (User.IsInRole("Admin") && !User.IsInRole("Reception"))
+            {
+                <a class="@NavClass("Borrowers")" asp-controller="Borrowers" asp-action="Index">Borrowers</a>
+            }
             @if (User.IsInRole("Manager"))
             {
                 <a class="@NavClass("Manager")" asp-controller="Manager" asp-action="Index">Statistics</a>
@@ -99,6 +103,14 @@
         if (target) target.style.display = 'grid';
     }
     document.addEventListener('DOMContentLoaded', updateItemFields);
+
+    // On a phone the menu is one sideways-scrolling row: bring the current page's link into view.
+    document.addEventListener('DOMContentLoaded', function () {
+        const nav = document.querySelector('.topbar nav');
+        const active = nav && nav.querySelector('a.active');
+        if (active && nav.scrollWidth > nav.clientWidth)
+            nav.scrollLeft = Math.max(0, active.offsetLeft - nav.offsetLeft - (nav.clientWidth - active.offsetWidth) / 2);
+    });
 </script>
 @await RenderSectionAsync("Scripts", required: false)
 </body>

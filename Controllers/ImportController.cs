@@ -12,6 +12,8 @@ public class ImportController : Controller
 {
     private readonly IItemImportService _import;
 
+    public const long RequestLimitBytes = 20 * ItemImportService.MaxBytes;
+
     public ImportController(IItemImportService import) => _import = import;
 
     [HttpGet]
@@ -19,8 +21,10 @@ public class ImportController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    [RequestSizeLimit(2 * ItemImportService.MaxBytes)]
-    [RequestFormLimits(MultipartBodyLengthLimit = 2 * ItemImportService.MaxBytes)]
+    // The request limit is well above the 1 MB file limit so that a file that is too big
+    // is answered with the importer's own message rather than a dropped connection.
+    [RequestSizeLimit(RequestLimitBytes)]
+    [RequestFormLimits(MultipartBodyLengthLimit = RequestLimitBytes)]
     public async Task<IActionResult> Index(IFormFile? csvFile, bool validateOnly = false, bool stopOnAnyError = false,
         CancellationToken cancellationToken = default)
     {

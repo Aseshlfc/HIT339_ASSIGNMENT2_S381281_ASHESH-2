@@ -15,7 +15,7 @@ body.kiosk { font-size: 20px; min-height: 100vh; display: flex; flex-direction: 
 .kiosk-brand { font-family: Georgia, "Times New Roman", serif; font-weight: 700; font-size: 1.4rem; }
 .kiosk-branch { background: rgba(255, 255, 255, 0.12); padding: 6px 16px; border-radius: 999px; }
 
-.kiosk-main { flex: 1; width: 100%; max-width: 860px; margin: 0 auto; padding: 28px 20px 40px; }
+.kiosk-main { flex: 1; width: 100%; max-width: 860px; margin: 0 auto; padding: 24px 20px 28px; }
 .kiosk-foot { text-align: center; color: var(--muted); padding: 14px; font-size: 0.9rem; }
 
 .kiosk-panel h1 { font-size: 2.4rem; margin: 0 0 8px; }
@@ -23,16 +23,64 @@ body.kiosk { font-size: 20px; min-height: 100vh; display: flex; flex-direction: 
 .kiosk-hint { color: var(--muted); font-size: 0.95rem; margin: 14px 0 0; }
 .kiosk-empty { color: var(--muted); margin: 6px 0; }
 
-.kiosk-welcome { text-align: center; padding-top: 24px; }
-.kiosk-welcome .kiosk-form { max-width: 520px; margin: 0 auto; }
+.kiosk-welcome { text-align: center; padding-top: 4px; }
+.kiosk-welcome h1 { font-size: 2.2rem; }
+.kiosk-welcome .kiosk-lead { margin-bottom: 18px; }
+.kiosk-welcome .kiosk-message { max-width: 560px; margin-left: auto; margin-right: auto; }
+
+/* Sign-in card: two numbered steps, each with a hint above and an error below the box. */
+.kiosk-signin {
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 24px 26px 26px;
+  text-align: left;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  box-shadow: var(--shadow);
+  gap: 18px;
+}
+.kiosk-field { display: grid; gap: 6px; }
+.kiosk-step {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--primary);
+  color: #fff;
+  font-size: 1rem;
+  font-weight: 800;
+}
+.kiosk-field-hint { margin: 0; color: var(--muted); font-size: 0.95rem; line-height: 1.4; }
+.kiosk-field-error { margin: 0; color: var(--danger); font-size: 1rem; font-weight: 700; }
+.kiosk-field-error:empty { display: none; }
+
+/* "First time / forgotten PIN" help, in the library's accent colour. */
+.kiosk-help {
+  max-width: 560px;
+  margin: 18px auto 0;
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  padding: 16px 20px;
+  text-align: left;
+  background: var(--accent-tint);
+  border: 1px solid #e3d2ab;
+  border-radius: 16px;
+}
+.kiosk-help > i { font-size: 1.5rem; color: var(--accent); line-height: 1.2; }
+.kiosk-help h2 { font-family: inherit; font-size: 1.1rem; margin: 0 0 4px; color: var(--text); }
+.kiosk-help p { margin: 0; font-size: 1rem; color: var(--text); line-height: 1.45; }
 
 .kiosk-form { display: grid; gap: 14px; }
-.kiosk-label { font-weight: 700; font-size: 1.1rem; text-align: left; }
+.kiosk-label { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 1.15rem; text-align: left; }
 .kiosk-input-row { position: relative; }
 .kiosk-input-row i { position: absolute; left: 18px; top: 50%; transform: translateY(-50%); font-size: 1.6rem; color: var(--muted); }
 .kiosk-input-row input {
   width: 100%;
-  height: 72px;
+  height: 66px;
   font-size: 1.9rem;
   letter-spacing: 0.06em;
   padding: 0 18px 0 62px;
@@ -41,7 +89,8 @@ body.kiosk { font-size: 20px; min-height: 100vh; display: flex; flex-direction: 
   text-transform: uppercase;
 }
 .kiosk-input-row input::placeholder { text-transform: none; letter-spacing: 0; color: #a99b8a; }
-.kiosk-input-row input:focus { border-color: var(--primary); outline: none; box-shadow: var(--focus-ring); }
+.kiosk-input-row input:focus { border-color: var(--primary); outline: none; box-shadow: 0 0 0 4px rgba(122, 31, 43, 0.3); }
+.kiosk-input-row input[aria-invalid="true"] { border-color: var(--danger); background: #fffafa; }
 
 .kiosk-btn {
   display: inline-flex;
@@ -57,12 +106,16 @@ body.kiosk { font-size: 20px; min-height: 100vh; display: flex; flex-direction: 
   border: 0;
   border-radius: 16px;
   cursor: pointer;
+  font-family: inherit;
   text-decoration: none;
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
 }
 .kiosk-btn:hover, .kiosk-btn:focus-visible { background: var(--primary-dark); color: #fff; }
+.kiosk-btn:focus-visible { outline: 3px solid var(--primary-dark); outline-offset: 3px; }
 .kiosk-btn:active { transform: scale(0.98); }
+.kiosk-btn:disabled { opacity: 0.75; cursor: progress; transform: none; }
+.kiosk-btn-compact { min-height: 52px; padding: 0 20px; font-size: 1.1rem; gap: 10px; }
 .kiosk-btn-secondary { background: #fff; color: var(--primary); border: 3px solid var(--primary); }
 .kiosk-btn-secondary:hover, .kiosk-btn-secondary:focus-visible { background: var(--primary-tint); color: var(--primary-dark); }
 .kiosk-btn-wide { width: 100%; }
@@ -83,8 +136,10 @@ body.kiosk { font-size: 20px; min-height: 100vh; display: flex; flex-direction: 
 .kiosk-error { background: var(--danger-bg); color: var(--danger); border: 2px solid var(--danger); }
 .kiosk-success { background: var(--success-bg); color: var(--success); border: 2px solid var(--success); }
 
-.kiosk-hello { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 18px; }
+.kiosk-hello { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px 16px; margin-bottom: 18px; }
+.kiosk-hello-name { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 14px; }
 .kiosk-hello h1 { margin: 0; }
+.kiosk-message-next { display: block; margin-top: 4px; font-size: 1rem; font-weight: 500; }
 .kiosk-card-tag { background: var(--accent-tint); color: var(--warning); padding: 6px 16px; border-radius: 999px; font-weight: 700; }
 
 .kiosk-card { background: var(--surface); border: 1px solid var(--border); border-radius: 18px; padding: 22px; margin-bottom: 20px; box-shadow: var(--shadow); }
@@ -103,12 +158,40 @@ body.kiosk { font-size: 20px; min-height: 100vh; display: flex; flex-direction: 
 .kiosk-fine-total { font-size: 2rem; font-weight: 800; color: var(--danger); margin: 0 0 10px; }
 .kiosk-fine-total span { font-size: 1rem; font-weight: 600; color: var(--muted); }
 
-.kiosk-done { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; margin-top: 8px; }
+.kiosk-done { display: flex; align-items: center; gap: 10px 18px; flex-wrap: wrap; margin-top: 8px; }
+.kiosk-privacy { margin: 0; }
+.kiosk-done form { margin: 0; }
 .kiosk-idle { color: var(--danger); font-weight: 700; }
+
+.kiosk-exit { display: flex; justify-content: center; margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--border); }
+/* site.css styles every <nav> as the staff menu (on phones: right padding, a fade-out
+   mask and sideways scrolling). The kiosk's exit landmark is not that menu. */
+.kiosk-exit { flex: none; order: 0; flex-wrap: nowrap; overflow: visible; padding-right: 0; -webkit-mask-image: none; mask-image: none; }
+.kiosk-exit a { white-space: normal; }
+.kiosk-exit .kiosk-btn { min-height: 64px; font-size: 1.25rem; }
+
+/* Wide screens: sign-in on the left, help and the way out on the right, so the
+   whole welcome screen fits a laptop or landscape tablet without scrolling. */
+@media (min-width: 960px) {
+  .kiosk-main:has(.kiosk-welcome) { max-width: 1040px; }
+  .kiosk-welcome-body { display: grid; grid-template-columns: minmax(0, 560px) minmax(0, 360px); gap: 28px; justify-content: center; align-items: start; }
+  .kiosk-welcome-side .kiosk-help { margin: 0; }
+  .kiosk-welcome-side .kiosk-exit { margin-top: 18px; padding-top: 0; border-top: 0; }
+  .kiosk-welcome-side .kiosk-exit .kiosk-btn { width: 100%; }
+}
 
 @media (max-width: 560px) {
   body.kiosk { font-size: 18px; }
   .kiosk-panel h1 { font-size: 1.9rem; }
   .kiosk-list li { flex-wrap: wrap; }
   .kiosk-list-side { justify-items: start; text-align: left; }
+  .kiosk-exit .kiosk-btn { width: 100%; padding: 0 20px; }
+  .kiosk-welcome h1 { font-size: 1.8rem; }
+  .kiosk-signin { padding: 18px 16px 20px; }
+  .kiosk-help { padding: 14px 16px; }
+  .kiosk-hello .kiosk-btn-compact { width: 100%; }
+  .kiosk-bar { padding: 12px 16px; flex-wrap: nowrap; gap: 10px; }
+  .kiosk-brand { font-size: 1.15rem; white-space: nowrap; }
+  .kiosk-branch { font-size: 0.95rem; padding: 5px 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .kiosk-btn { font-size: 1.3rem; }
 }

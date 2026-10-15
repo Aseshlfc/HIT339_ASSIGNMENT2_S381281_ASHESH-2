@@ -19,4 +19,4 @@ public class Notification
 
 public enum NotificationChannel { Email, Sms }
 
-public enum NotificationType { Borrowed, DueSoon, FineIssued, ReservationReady, ReservationExpired }
+public enum NotificationType { Borrowed, DueSoon, FineIssued, ReservationReady, ReservationExpired, ReservationCancelled, ReservationDelayed }

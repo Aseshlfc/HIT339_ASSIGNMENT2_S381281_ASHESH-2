@@ -76,7 +76,7 @@ public class LoansController : Controller
             return View(model);
         }
 
-        var item = await _db.Items.SingleOrDefaultAsync(i => i.LibraryCode == model.LibraryCode);
+        var item = await _db.FindItemByCodeAsync(model.LibraryCode);
         if (item == null)
             ModelState.AddModelError(nameof(model.LibraryCode), "No item was found with this library code.");
         else if (item.Status != ItemStatus.Available)
@@ -96,13 +96,14 @@ public class LoansController : Controller
         if (!borrowerExists)
             ModelState.AddModelError(nameof(model.BorrowerId), "Borrower was not found.");
 
-        // A Ready hold means the item is being kept for the first borrower in the queue.
+        // An item with a reservation queue is kept for the first borrower in that queue.
+        // The same check is used by the kiosk (IReservationService.CheckBorrowAsync).
         Reservation? readyHold = null;
-        if (item != null && item.Status == ItemStatus.Available)
+        if (ModelState.IsValid && item != null)
         {
-            readyHold = await _db.Reservations
-                .FirstOrDefaultAsync(r => r.ItemId == item.Id && r.Status == ReservationStatus.Ready);
-            if (readyHold != null && readyHold.BorrowerId != model.BorrowerId)
+            var holdCheck = await _reservations.CheckBorrowAsync(item, model.BorrowerId);
+            readyHold = holdCheck.HoldToFulfil;
+            if (!holdCheck.Allowed)
                 ModelState.AddModelError(nameof(model.LibraryCode),
                     "This item is being held for another borrower who reserved it.");
         }
@@ -254,6 +255,8 @@ public class LoansController : Controller
         }
         // If the item is Available again, offer it to the first borrower waiting in the queue.
         await _reservations.NotifyNextInQueueAsync(loan.Item);
+        // If it was written off instead, nobody can ever collect it: close its holds.
+        await _reservations.CloseHoldsForDestroyedItemAsync(loan.Item);
         if (movedMessage != null) TempData["Success"] = movedMessage;
         return RedirectToAction(nameof(Index));
     }

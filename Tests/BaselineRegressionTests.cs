@@ -1,4 +1,6 @@
 using LibraryManagementSystem.Controllers;
+using LibraryManagementSystem.Data;
+using LibraryManagementSystem.Services;
 using LibraryManagementSystem.Models;
 using LibraryManagementSystem.ViewModels;
 using Microsoft.AspNetCore.Authorization;
@@ -14,11 +16,15 @@ namespace LibraryManagementSystem.Tests;
 /// </summary>
 public class BaselineRegressionTests
 {
+    private static KioskPinService PinServiceFor(LibraryContext db) =>
+        new(db, new KioskSessionStore(new Microsoft.AspNetCore.DataProtection.EphemeralDataProtectionProvider(),
+            Microsoft.Extensions.Options.Options.Create(new LibraryManagementSystem.Api.KioskOptions()), TimeProvider.System), TimeProvider.System);
+
     [Fact]
     public async Task Borrowers_CreateEditAndDelete()
     {
         using var db = TestDb.Create();
-        var controller = new BorrowersController(db);
+        var controller = new BorrowersController(db, PinServiceFor(db));
         ControllerTestHelpers.AttachContext(controller);
 
         await controller.Create(new Borrower { FullName = "Ann", Email = "ann@example.com", Phone = "0400000000", Address = "1 St" });
@@ -42,7 +48,7 @@ public class BaselineRegressionTests
         await db.SaveChangesAsync();
         db.Loans.Add(new Loan { ItemId = book.Id, BorrowerId = borrower.Id, BorrowedAt = DateTime.Now, DueDate = DateTime.Now.AddDays(14) });
         await db.SaveChangesAsync();
-        var controller = new BorrowersController(db);
+        var controller = new BorrowersController(db, PinServiceFor(db));
         ControllerTestHelpers.AttachContext(controller);
 
         await controller.DeleteConfirmed(borrower.Id);
@@ -121,7 +127,9 @@ public class BaselineRegressionTests
         Assert.Equal("Admin", Roles(typeof(ItemsController)));
         Assert.Equal("Admin", Roles(typeof(StaffController)));
         Assert.Equal("Reception", Roles(typeof(LoansController)));
-        Assert.Equal("Reception", Roles(typeof(BorrowersController)));
+        // Admin was added so Admin can set kiosk PINs; adding, editing and deleting
+        // borrowers stay Reception-only (see KioskPinTests).
+        Assert.Equal("Reception,Admin", Roles(typeof(BorrowersController)));
         Assert.Equal("Manager", Roles(typeof(ManagerController)));
         Assert.Null(typeof(HomeController).GetCustomAttribute<AuthorizeAttribute>());
     }

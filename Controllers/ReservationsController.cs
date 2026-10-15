@@ -28,11 +28,14 @@ public class ReservationsController : Controller
     public async Task<IActionResult> Index()
     {
         var active = await _db.Reservations
-            .Include(r => r.Item)
+            .Include(r => r.Item).ThenInclude(i => i.Branch)
             .Include(r => r.Borrower)
             .AsNoTracking()
             .Where(r => r.Status == ReservationStatus.Waiting || r.Status == ReservationStatus.Ready)
             .ToListAsync();
+
+        // The desk's own branch, so holds on items held elsewhere can be pointed out.
+        ViewBag.DeskBranchId = (await _db.GetStaffBranchAsync(User))?.Id;
 
         // Ids increase in the order holds are placed, so Id order is queue order.
         var positions = new Dictionary<int, int>();
@@ -64,7 +67,7 @@ public class ReservationsController : Controller
             return View(model);
         }
 
-        var item = await _db.Items.SingleOrDefaultAsync(i => i.LibraryCode == model.LibraryCode);
+        var item = await _db.FindItemByCodeAsync(model.LibraryCode);
         if (item == null)
             ModelState.AddModelError(nameof(model.LibraryCode), "No item was found with this library code.");
         else if (item.Status == ItemStatus.Available)
@@ -107,24 +110,31 @@ public class ReservationsController : Controller
         return RedirectToAction(nameof(Index));
     }
 
-    // Only holds that are still waiting can be cancelled here.
+    // Waiting and Ready holds can be cancelled. Cancelling a Ready hold releases the
+    // item, so the next borrower in the queue is offered it straight away.
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Cancel(int id)
     {
-        var reservation = await _db.Reservations.FindAsync(id);
+        var reservation = await _db.Reservations.AsNoTracking().SingleOrDefaultAsync(r => r.Id == id);
         if (reservation == null) return NotFound();
 
-        if (reservation.Status != ReservationStatus.Waiting)
+        if (reservation.Status != ReservationStatus.Waiting && reservation.Status != ReservationStatus.Ready)
         {
-            TempData["Error"] = "Only holds that are still waiting can be cancelled.";
+            TempData["Error"] = "Only holds that are waiting or ready can be cancelled.";
             return RedirectToAction(nameof(Index));
         }
 
-        reservation.Status = ReservationStatus.Cancelled;
-        await _db.SaveChangesAsync();
+        var wasReady = reservation.Status == ReservationStatus.Ready;
+        if (!await _reservations.CancelHoldAsync(id))
+        {
+            TempData["Error"] = "This hold was changed by someone else just now. Please check the list and try again.";
+            return RedirectToAction(nameof(Index));
+        }
 
-        TempData["Success"] = "Hold cancelled.";
+        TempData["Success"] = wasReady
+            ? "Hold cancelled. The item has been offered to the next borrower in the queue, if there is one."
+            : "Hold cancelled.";
         return RedirectToAction(nameof(Index));
     }
 

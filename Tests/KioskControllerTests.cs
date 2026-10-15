@@ -14,13 +14,7 @@ namespace LibraryManagementSystem.Tests;
 
 public class KioskControllerTests
 {
-    private static KioskController Create(LibraryContext db)
-    {
-        var kiosk = new KioskService(db, new NotificationService(db, NullLogger<NotificationService>.Instance));
-        var controller = new KioskController(db, kiosk);
-        ControllerTestHelpers.AttachContext(controller);
-        return controller;
-    }
+    private static KioskController Create(LibraryContext db) => new KioskBrowser(db).Controller();
 
     [Fact]
     public async Task Index_SkipsTheBranchPickerWhenThereIsOnlyOneActiveBranch()
@@ -81,79 +75,271 @@ public class KioskControllerTests
     }
 
     [Fact]
-    public async Task Account_WithAnUnknownCard_GoesBackToTheWelcomeScreenWithAMessage()
+    public async Task SignIn_WithAnUnknownCard_GoesBackToTheWelcomeScreenWithAMessage()
     {
         using var testDb = new SqliteTestDb();
         using var db = testDb.Open();
+        var browser = new KioskBrowser(db);
+        var token = await browser.WelcomeTokenAsync();
 
-        var view = Assert.IsType<ViewResult>(await Create(db).Account("CEN", new KioskCardForm { CardNumber = "P9999" }));
+        var view = await browser.Send<ViewResult>(c => c.OpenAccount("CEN", new KioskCardForm { CardNumber = "P9999", Pin = KioskBrowser.TestPin, SignInToken = token }));
 
         Assert.Equal("Welcome", view.ViewName);
-        Assert.Contains("not recognised", Assert.IsType<KioskWelcomeViewModel>(view.Model).Error);
+        var model = Assert.IsType<KioskWelcomeViewModel>(view.Model);
+        Assert.Contains("do not match", model.Error);
+        Assert.NotEqual(token, model.SignInToken);              // a fresh form for the next try
+        Assert.Null(browser.SessionCookie);
     }
 
     [Fact]
-    public async Task Account_WithAValidCard_ShowsThePatronsAccount()
+    public async Task SignIn_WithAValidCard_RedirectsToTheAccountPage_WhichShowsThePatron()
     {
         using var testDb = new SqliteTestDb();
         using var db = testDb.Open();
         var borrower = await Section1.AddBorrowerAsync(db, "Alice Nguyen");
+        var browser = new KioskBrowser(db);
+        await browser.GivePinAsync(borrower);
+        var token = await browser.WelcomeTokenAsync();
 
-        var view = Assert.IsType<ViewResult>(await Create(db).Account("CEN", new KioskCardForm { CardNumber = borrower.CardNumber }));
+        var redirect = await browser.Send<RedirectToActionResult>(c => c.OpenAccount("CEN", new KioskCardForm { CardNumber = borrower.CardNumber, Pin = KioskBrowser.TestPin, SignInToken = token }));
+        Assert.Equal("Account", redirect.ActionName);
 
-        Assert.Equal("Account", view.ViewName);
+        var view = await browser.Send<ViewResult>(c => c.Account("CEN"));
         var model = Assert.IsType<KioskAccountViewModel>(view.Model);
         Assert.Equal("Alice Nguyen", model.Account.Patron.FullName);
         Assert.Null(model.Message);
     }
 
     [Fact]
-    public async Task Checkout_ShowsSuccessOrFailureOnTheAccountScreen()
+    public async Task Checkout_ShowsSuccessOrFailureOnTheAccountScreen_Once()
     {
         using var testDb = new SqliteTestDb();
         using var db = testDb.Open();
         var (central, _, _) = await Section1.SeedBranchesAsync(db);
         await Section1.AddBookAsync(db, "B100", central, name: "Kiosk Book");
         var borrower = await Section1.AddBorrowerAsync(db);
+        var browser = new KioskBrowser(db);
+        await browser.SignInAsync(borrower);
 
-        var ok = Assert.IsType<KioskAccountViewModel>(Assert.IsType<ViewResult>(
-            await Create(db).Checkout("CEN", new KioskCheckoutForm { CardNumber = borrower.CardNumber, LibraryCode = "B100" })).Model);
+        var redirect = await browser.Send<RedirectToActionResult>(c => c.Checkout("CEN", new KioskCheckoutForm { LibraryCode = "B100" }));
+        Assert.Equal("Account", redirect.ActionName);
+        var ok = await browser.AccountAsync();
         Assert.False(ok.MessageIsError);
         Assert.Contains("Kiosk Book", ok.Message);
         Assert.Single(ok.Account.ActiveLoans);
         Assert.Null(ok.LibraryCode);
 
-        var failed = Assert.IsType<KioskAccountViewModel>(Assert.IsType<ViewResult>(
-            await Create(db).Checkout("CEN", new KioskCheckoutForm { CardNumber = borrower.CardNumber, LibraryCode = "NOPE" })).Model);
+        // Refreshing the account page does not repeat the message.
+        Assert.Null((await browser.AccountAsync()).Message);
+
+        await browser.Send<RedirectToActionResult>(c => c.Checkout("CEN", new KioskCheckoutForm { LibraryCode = "NOPE" }));
+        var failed = await browser.AccountAsync();
         Assert.True(failed.MessageIsError);
         Assert.Equal("NOPE", failed.LibraryCode);          // kept so the patron can correct it
         Assert.Single(failed.Account.ActiveLoans);
     }
 
     [Fact]
-    public async Task Checkout_WithAnUnknownCard_SendsThePatronBackToTheWelcomeScreen_AndLendsNothing()
+    public async Task Checkout_WithoutASession_SendsThePatronBackToTheWelcomeScreen_AndLendsNothing()
     {
         using var testDb = new SqliteTestDb();
         using var db = testDb.Open();
         var (central, _, _) = await Section1.SeedBranchesAsync(db);
         await Section1.AddBookAsync(db, "B100", central);
+        var browser = new KioskBrowser(db);
 
-        var view = Assert.IsType<ViewResult>(
-            await Create(db).Checkout("CEN", new KioskCheckoutForm { CardNumber = "P9999", LibraryCode = "B100" }));
+        var redirect = await browser.Send<RedirectToActionResult>(c => c.Checkout("CEN", new KioskCheckoutForm { LibraryCode = "B100" }));
 
-        Assert.Equal("Welcome", view.ViewName);
+        Assert.Equal("Welcome", redirect.ActionName);
+        Assert.Equal(true, redirect.RouteValues!["ended"]);
         Assert.Equal(0, await db.Loans.CountAsync());
     }
 
     [Fact]
     public async Task EveryKioskPostAction_RequiresAnAntiForgeryToken()
     {
-        foreach (var name in new[] { nameof(KioskController.Account), nameof(KioskController.Checkout) })
+        foreach (var name in new[] { nameof(KioskController.OpenAccount), nameof(KioskController.Checkout), nameof(KioskController.Finish) })
         {
             var method = typeof(KioskController).GetMethod(name)!;
+            Assert.NotNull(method.GetCustomAttributes(typeof(HttpPostAttribute), false).SingleOrDefault());
             Assert.NotEmpty(method.GetCustomAttributes(typeof(ValidateAntiForgeryTokenAttribute), false));
         }
         await Task.CompletedTask;
+    }
+
+    // Regression for Windows testing feedback: after signing out there was no way back to the main site.
+    [Fact]
+    public async Task Welcome_AfterSignOut_ShowsTheSignedOutScreenWithNoPatronDetails()
+    {
+        using var testDb = new SqliteTestDb();
+        using var db = testDb.Open();
+        var borrower = await Section1.AddBorrowerAsync(db);
+        var browser = new KioskBrowser(db);
+        await browser.SignInAsync(borrower);
+
+        var redirect = await browser.Send<RedirectToActionResult>(c => c.Finish("CEN"));
+        Assert.Equal("Welcome", redirect.ActionName);
+        Assert.Equal(true, redirect.RouteValues!["signedOut"]);
+
+        var view = await browser.Send<ViewResult>(c => c.Welcome("CEN", signedOut: true));
+        var model = Assert.IsType<KioskWelcomeViewModel>(view.Model);
+        Assert.True(model.SignedOut);
+        Assert.Null(model.CardNumber);
+        Assert.Null(model.Error);
+
+        var normal = Assert.IsType<KioskWelcomeViewModel>((await browser.Send<ViewResult>(c => c.Welcome("CEN"))).Model);
+        Assert.False(normal.SignedOut);
+    }
+
+    [Fact]
+    public async Task SignOut_GoesToTheSignedOutScreen_WhichOffersTheWayBackToTheMainSite()
+    {
+        var welcome = await File.ReadAllTextAsync(ViewPath("Welcome.cshtml"));
+        var account = await File.ReadAllTextAsync(ViewPath("Account.cshtml"));
+        var exitLink = await File.ReadAllTextAsync(ViewPath("_BackToMainSite.cshtml"));
+
+        Assert.Contains("Back to Main Site", exitLink);
+        Assert.Contains("Url.Action(\"Index\", \"Home\")", exitLink);
+        Assert.Contains("name=\"SignInToken\"", welcome);
+
+        // Finish and the idle timer both post the sign-out form, so the session ends on the server.
+        Assert.Contains("asp-action=\"Finish\"", account);
+        Assert.Contains("finish.submit()", account);
+
+        // The way out is only offered once nobody is signed in, and the card number
+        // is never sent back from the account page.
+        Assert.DoesNotContain("Back to Main Site", account);
+        Assert.DoesNotContain("_BackToMainSite", account);
+        Assert.DoesNotContain("name=\"CardNumber\"", account);
+    }
+
+    // Regression: the branch-choice screen had no way back to the main site.
+    [Theory]
+    [InlineData("Index.cshtml")]          // choose a branch
+    [InlineData("Welcome.cshtml")]        // before sign-in and after sign-out
+    [InlineData("BranchNotFound.cshtml")]
+    public async Task EveryPublicKioskScreen_OffersTheWayBackToTheMainSite(string view)
+    {
+        var markup = await File.ReadAllTextAsync(ViewPath(view));
+
+        Assert.Contains("<partial name=\"_BackToMainSite\" />", markup);
+    }
+
+    [Fact]
+    public async Task Welcome_ExplainsBothStepsAndWhereToGetHelp()
+    {
+        var welcome = await File.ReadAllTextAsync(ViewPath("Welcome.cshtml"));
+
+        // Hints and inline errors are tied to their boxes for screen readers.
+        Assert.Contains("aria-describedby=\"cardHint cardError\"", welcome);
+        Assert.Contains("aria-describedby=\"pinHint pinError\"", welcome);
+        Assert.Contains("id=\"cardError\" aria-live=\"polite\"", welcome);
+        Assert.Contains("id=\"pinError\" aria-live=\"polite\"", welcome);
+
+        // First-time patrons and forgotten PINs are sent to Reception.
+        Assert.Contains("First time here, or forgotten your PIN?", welcome);
+        Assert.Contains("Reception desk", welcome);
+
+        // The form checks itself and explains problems in the kiosk's words.
+        Assert.Contains("novalidate", welcome);
+        Assert.Contains("Enter your 6-digit PIN.", welcome);
+    }
+
+    [Theory]
+    [InlineData("Welcome.cshtml")]
+    [InlineData("Account.cshtml")]
+    public async Task ScanningIsOnlyMentionedAsAnOption_NeverPromised(string view)
+    {
+        // The application has no camera or barcode reading of its own. A scanner works only
+        // if one is attached and types like a keyboard, so the screens say "if".
+        var markup = await File.ReadAllTextAsync(ViewPath(view));
+
+        Assert.Contains("If this kiosk has a", markup);
+        Assert.DoesNotContain("Scan your library card", markup);
+        Assert.DoesNotContain("Scan or type", markup);
+    }
+
+    [Fact]
+    public async Task BranchChoice_ShowsNoStaffInstructionsToPatrons()
+    {
+        var markup = await File.ReadAllTextAsync(ViewPath("Index.cshtml"));
+        var visible = System.Text.RegularExpressions.Regex.Replace(markup, "@\\*.*?\\*@", "", System.Text.RegularExpressions.RegexOptions.Singleline);
+
+        Assert.DoesNotContain("Staff:", visible);
+        Assert.DoesNotContain("bookmark", visible);
+    }
+
+    [Fact]
+    public async Task Account_CanOnlyBeLeftThroughTheServerSideSignOut()
+    {
+        var account = await File.ReadAllTextAsync(ViewPath("Account.cshtml"));
+        var layout = await File.ReadAllTextAsync(Path.Combine(Path.GetDirectoryName(Path.GetDirectoryName(ViewPath("Account.cshtml")))!, "Shared", "_KioskLayout.cshtml"));
+
+        // Top and bottom buttons both submit the one sign-out form.
+        Assert.Contains("<form method=\"post\" asp-action=\"Finish\"", account);
+        Assert.Contains("form=\"kioskFinish\"", account);
+
+        // No link off the signed-in screen: not to the welcome screen, the main site or anywhere else.
+        Assert.DoesNotContain("<a ", account);
+        Assert.DoesNotContain("<a ", layout);
+    }
+
+    [Fact]
+    public async Task Account_BorrowBoxExplainsAnEmptyCodeNextToIt()
+    {
+        var account = await File.ReadAllTextAsync(ViewPath("Account.cshtml"));
+
+        Assert.Contains("aria-describedby=\"codeHint codeError\"", account);
+        Assert.Contains("id=\"codeError\" aria-live=\"polite\"", account);
+        Assert.Contains("Enter the library code on the item.", account);
+    }
+
+    // Regression: on phones the staff menu's <nav> styles (right padding, fade-out mask)
+    // also hit the kiosk's exit landmark, squeezing and fading the button.
+    [Fact]
+    public async Task TheExitLandmark_DoesNotInheritTheStaffMenusPhoneStyles()
+    {
+        var dir = Path.GetDirectoryName(Path.GetDirectoryName(Path.GetDirectoryName(ViewPath("Index.cshtml"))))!;
+        var css = await File.ReadAllTextAsync(Path.Combine(dir, "wwwroot", "css", "kiosk.css"));
+
+        var reset = System.Text.RegularExpressions.Regex.Match(css, @"\.kiosk-exit \{ flex: none;[^}]*\}").Value;
+        Assert.Contains("padding-right: 0", reset);
+        Assert.Contains("mask-image: none", reset);
+        Assert.Contains("overflow: visible", reset);
+    }
+
+    [Fact]
+    public async Task TheBackToMainSiteLink_IsALabelledLandmarkWithADecorativeIcon()
+    {
+        var exitLink = await File.ReadAllTextAsync(ViewPath("_BackToMainSite.cshtml"));
+
+        Assert.Contains("<nav class=\"kiosk-exit\" aria-label=\"Leave the kiosk\">", exitLink);
+        Assert.Contains("<i class=\"bi bi-arrow-left\" aria-hidden=\"true\"></i> Back to Main Site", exitLink);
+    }
+
+    [Fact]
+    public async Task KioskScreens_AreNeverStoredByTheBrowser()
+    {
+        foreach (var name in new[] { nameof(KioskController.Welcome), nameof(KioskController.OpenAccount), nameof(KioskController.Account), nameof(KioskController.Checkout) })
+        {
+            var cache = typeof(KioskController).GetMethod(name)!
+                .GetCustomAttributes(typeof(ResponseCacheAttribute), false)
+                .Cast<ResponseCacheAttribute>()
+                .SingleOrDefault();
+            Assert.NotNull(cache);
+            Assert.True(cache!.NoStore);
+            Assert.Equal(ResponseCacheLocation.None, cache.Location);
+        }
+        await Task.CompletedTask;
+    }
+
+    private static string ViewPath(string file)
+    {
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (dir != null && !File.Exists(Path.Combine(dir.FullName, "LibraryManagementSystem.csproj")))
+            dir = dir.Parent;
+        Assert.NotNull(dir);
+        return Path.Combine(dir!.FullName, "Views", "Kiosk", file);
     }
 }
 
