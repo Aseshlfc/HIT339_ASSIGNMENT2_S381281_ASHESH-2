@@ -15,11 +15,12 @@ public record KioskFlash(string Message, bool IsError, string? LibraryCode);
 /// </summary>
 public sealed class KioskSession
 {
-    internal KioskSession(string id, int patronId, int branchId, DateTimeOffset now)
+    internal KioskSession(string id, int patronId, int branchId, DateTime? pinSetAtUtc, DateTimeOffset now)
     {
         Id = id;
         PatronId = patronId;
         BranchId = branchId;
+        PinSetAtUtc = pinSetAtUtc;
         StartedAt = now;
         LastSeenAt = now;
     }
@@ -27,6 +28,10 @@ public sealed class KioskSession
     public string Id { get; }
     public int PatronId { get; }
     public int BranchId { get; }
+
+    /// <summary>The patron's PIN version at sign-in; a newer PIN ends this session.</summary>
+    public DateTime? PinSetAtUtc { get; }
+
     public DateTimeOffset StartedAt { get; }
     public DateTimeOffset LastSeenAt { get; internal set; }
 
@@ -55,12 +60,15 @@ public interface IKioskSessionStore
     /// </summary>
     bool RedeemSignInToken(string? token, int branchId);
 
-    KioskSession Start(int patronId, int branchId);
+    KioskSession Start(int patronId, int branchId, DateTime? pinSetAtUtc);
 
     /// <summary>The live session with this id, or null if it never existed, ended or expired.</summary>
     KioskSession? Find(string? sessionId);
 
     void End(string? sessionId);
+
+    /// <summary>Ends every kiosk session of one patron, for example when their PIN changes.</summary>
+    void EndAllForPatron(int patronId);
 }
 
 public class KioskSessionStore : IKioskSessionStore
@@ -110,13 +118,13 @@ public class KioskSessionStore : IKioskSessionStore
         return _usedTokens.TryAdd(parts[0], expires);
     }
 
-    public KioskSession Start(int patronId, int branchId)
+    public KioskSession Start(int patronId, int branchId, DateTime? pinSetAtUtc)
     {
         var now = _time.GetUtcNow();
         foreach (var stale in _sessions.Values.Where(s => IsExpired(s, now)))
             _sessions.TryRemove(stale.Id, out _);
 
-        var session = new KioskSession(NewId(32), patronId, branchId, now);
+        var session = new KioskSession(NewId(32), patronId, branchId, pinSetAtUtc, now);
         _sessions[session.Id] = session;
         return session;
     }
@@ -141,6 +149,12 @@ public class KioskSessionStore : IKioskSessionStore
     {
         if (!string.IsNullOrEmpty(sessionId))
             _sessions.TryRemove(sessionId, out _);
+    }
+
+    public void EndAllForPatron(int patronId)
+    {
+        foreach (var session in _sessions.Values.Where(s => s.PatronId == patronId))
+            _sessions.TryRemove(session.Id, out _);
     }
 
     private bool IsExpired(KioskSession session, DateTimeOffset now) =>

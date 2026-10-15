@@ -11,7 +11,7 @@ namespace LibraryManagementSystem.Controllers;
 
 /// <summary>
 /// Public self-service kiosk. No staff login: a patron identifies themselves with
-/// a library card number. Each physical kiosk is opened at its own branch address,
+/// a library card number and a 6-digit PIN set by staff. Each physical kiosk is opened at its own branch address,
 /// /kiosk/{branchCode}, and can only lend items held at that branch. After sign-in
 /// the patron is held in a short server-side session (see KioskSessionStore).
 /// </summary>
@@ -21,12 +21,14 @@ public class KioskController : Controller
     private readonly LibraryContext _db;
     private readonly IKioskService _kiosk;
     private readonly IKioskSessionStore _sessions;
+    private readonly IKioskPinService _pins;
 
-    public KioskController(LibraryContext db, IKioskService kiosk, IKioskSessionStore sessions)
+    public KioskController(LibraryContext db, IKioskService kiosk, IKioskSessionStore sessions, IKioskPinService pins)
     {
         _db = db;
         _kiosk = kiosk;
         _sessions = sessions;
+        _pins = pins;
     }
 
     // Branch picker. A library with one active branch skips straight to it.
@@ -57,7 +59,7 @@ public class KioskController : Controller
         return WelcomeView(branch, error: ended ? SessionEndedMessage : null, signedOut: signedOut && !ended);
     }
 
-    // Post/Redirect/Get: a recognised card starts a new server-side session and the
+    // Post/Redirect/Get: a recognised card and correct PIN start a new server-side session and the
     // browser is sent to GET /account, so the card number post never stays in history.
     [HttpPost("{branchCode}/account")]
     [ValidateAntiForgeryToken]
@@ -76,16 +78,24 @@ public class KioskController : Controller
         if (!_sessions.RedeemSignInToken(form.SignInToken, branch.Id))
             return WelcomeView(branch, error: "This screen has expired. Please scan your library card again.");
 
-        var patron = await _kiosk.FindPatronAsync(form.CardNumber);
-        if (patron == null)
+        var result = await _pins.SignInAsync(form.CardNumber, form.Pin);
+        if (result.Status != KioskSignInStatus.Success)
         {
-            return WelcomeView(branch, cardNumber: form.CardNumber,
-                error: string.IsNullOrWhiteSpace(form.CardNumber)
-                    ? "Scan or type your library card number."
-                    : "That card number was not recognised. Check the number on your card and try again.");
+            // The card number is only kept when the PIN is all that is missing, and the PIN never is.
+            return WelcomeView(branch,
+                cardNumber: result.Status == KioskSignInStatus.MissingPin ? form.CardNumber : null,
+                error: result.Status switch
+                {
+                    KioskSignInStatus.MissingCard => "Scan or type your library card number.",
+                    KioskSignInStatus.MissingPin => "Type your 6-digit kiosk PIN.",
+                    KioskSignInStatus.NoPinSet => "This card does not have a kiosk PIN yet. Please ask library staff at the desk to set one up.",
+                    KioskSignInStatus.LockedOut => "Too many incorrect PINs. This card cannot be used at the kiosk for 15 minutes. Library staff at the desk can help.",
+                    _ => "That card number and PIN do not match. Check them and try again."
+                });
         }
 
-        var session = _sessions.Start(patron.Id, branch.Id);
+        var patron = result.Patron!;
+        var session = _sessions.Start(patron.Id, branch.Id, patron.KioskPinSetAtUtc);
         Response.Cookies.Append(SessionCookieName, session.Id, SessionCookieOptions());
         return RedirectToAction(nameof(Account), new { branchCode = branch.Code });
     }
@@ -162,6 +172,11 @@ public class KioskController : Controller
         if (session.BranchId != branch.Id) return (null, null);
 
         var patron = await _db.Borrowers.AsNoTracking().SingleOrDefaultAsync(b => b.Id == session.PatronId);
+
+        // Staff changed the PIN (or the patron was removed) after this session began.
+        if (patron == null || patron.KioskPinHash == null || patron.KioskPinSetAtUtc != session.PinSetAtUtc)
+            return (null, null);
+
         return (session, patron);
     }
 

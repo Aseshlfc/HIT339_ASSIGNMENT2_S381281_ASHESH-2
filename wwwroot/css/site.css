@@ -677,3 +677,7 @@ input[type="file"] { max-width: 100%; min-width: 0; }
   nav::-webkit-scrollbar { display: none; }
   nav a { flex: 0 0 auto; white-space: nowrap; }
 }
+
+/* Kiosk PIN boxes (type="password", so every browser masks them). */
+.pin-input { letter-spacing: 0.3em; }
+.pin-status { white-space: nowrap; }

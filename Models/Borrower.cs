@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
 
 namespace LibraryManagementSystem.Models;
 
@@ -24,6 +25,28 @@ public class Borrower
     public string Address { get; set; } = string.Empty;
 
     public ICollection<Loan> Loans { get; set; } = new List<Loan>();
+
+    // Kiosk PIN. Set only by staff through KioskPinService, never bound from a form.
+    // The PIN itself is never stored: only a salted PBKDF2 hash (ASP.NET Core Identity's hasher).
+
+    /// <summary>Hash of the patron's 6-digit kiosk PIN; null until staff set one.</summary>
+    [BindNever]
+    public string? KioskPinHash { get; set; }
+
+    /// <summary>When the PIN was last set. Kiosk sessions started before this are ended.</summary>
+    [BindNever]
+    public DateTime? KioskPinSetAtUtc { get; set; }
+
+    /// <summary>Wrong PINs since the last success or lockout.</summary>
+    [BindNever]
+    public int KioskPinFailedAttempts { get; set; }
+
+    /// <summary>The kiosk refuses this card until then.</summary>
+    [BindNever]
+    public DateTime? KioskPinLockedUntilUtc { get; set; }
+
+    [NotMapped]
+    public bool HasKioskPin => KioskPinHash != null;
 
     /// <summary>
     /// The patron's library card number, used at the self-service kiosk.

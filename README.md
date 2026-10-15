@@ -114,13 +114,14 @@ dotnet ef database update
 | `AddItemMovementKind` | 1 | `Kind` on `ItemTransfers`; assigns existing Reception accounts to the default branch |
 | `AddNotifications` | 3 | `Notifications` |
 | `AddReservations` | 3 | `Reservations` |
+| `AddKioskPin` | 2 (integration) | `KioskPinHash`, `KioskPinSetAtUtc`, `KioskPinFailedAttempts`, `KioskPinLockedUntilUtc` on `Borrowers`. Existing borrowers start with no PIN |
 
-Section 2 adds no tables or columns. The library card number is derived from the borrower Id (for example `P0007`).
+The library card number is not stored: it is derived from the borrower Id (for example `P0007`). The kiosk PIN is stored only as a salted hash.
 
 **Database design summary**
 
 - `Items` stores all item types using EF Core table-per-hierarchy inheritance and an item discriminator. `Item` is an abstract superclass; `Book`, `Music` and `Toy` inherit from it.
-- `Borrowers` stores patron information.
+- `Borrowers` stores patron information, and the kiosk PIN hash, lockout counter and lockout time.
 - `Loans` links one borrower to one item and records borrowing, due date, return date, fine and issuing branch.
 - `Branches` and `ItemTransfers` record where each item is and every change of location.
 - `Reservations` holds the queue for each item; `Notifications` stores every simulated email or SMS.
@@ -136,10 +137,10 @@ When adding a migration, merge the latest `main` first. See the [GitHub workflow
 
 | Role | Demo username | Access |
 |---|---|---|
-| Admin | `admin` | Items, CSV import, staff accounts, branches (full), transfers (any branch) |
-| Reception | `reception` | Loans, borrowers, reservations, notifications, transfers for its own branch, branches (view) |
+| Admin | `admin` | Items, CSV import, staff accounts, branches (full), transfers (any branch), kiosk PINs (Borrowers page; cannot add, edit or delete borrowers) |
+| Reception | `reception` | Loans, borrowers (including kiosk PINs), reservations, notifications, transfers for its own branch, branches (view) |
 | Manager | `manager` | Dashboard, reports and exports, branches (view) |
-| Public | no login | Catalogue search, self-service kiosk (library card number) |
+| Public | no login | Catalogue search, self-service kiosk (library card number and 6-digit PIN) |
 | External application | API key | Read-only REST API |
 
 The demonstration passwords are not published in this repository's documentation. They are displayed on the Staff Login page and are set in `Data/DbSeeder.cs`. They exist for classroom demonstration only; change them before any real use.
@@ -205,14 +206,15 @@ Manager → Statistics. Reports: Borrowing statistics (date range, branch, categ
 
 ## Section 2: Public kiosk, REST API and data import
 
-Author: Susan Acharya. Full notes: [`docs/SECTION2_NOTES.md`](docs/SECTION2_NOTES.md). No database migration is needed for this section.
+Author: Susan Acharya. Full notes: [`docs/SECTION2_NOTES.md`](docs/SECTION2_NOTES.md). Section 2 itself needed no migration; the kiosk PIN added during integration does (`AddKioskPin`).
 
 ### Kiosk (no login)
 - **Where:** the **Kiosk** link in the menu, or `/kiosk/CEN` (Central), `/kiosk/NTH`, `/kiosk/RIV`.
-- **How:** type or scan a library card number (the **Borrowers** page shows each one, for example `P0005`). The kiosk shows loans, fines and reservations. Scan or type an item code (for example `B003`) and tap **Borrow**.
+- **How:** type or scan a library card number (the **Borrowers** page shows each one, for example `P0005`), then type the patron's 6-digit PIN. The kiosk shows loans, fines and reservations. Scan or type an item code (for example `B003`) and tap **Borrow**.
 - **Rules:** same as the desk: only Available items held at that branch, items kept for another patron's hold are refused, loans are due in 14 days, and a Borrowed notification is sent. The kiosk signs out after 60 seconds idle.
 - **Sessions:** a recognised card starts a short server-side session (`Services/KioskSessionStore.cs`). The browser only holds a random id in an HttpOnly, SameSite=Strict cookie limited to `/kiosk`. Signing out, the idle timer and the welcome screen end the session on the server. Each welcome screen carries a one-time sign-in token, so a resubmitted or replayed sign-in form is refused.
-- **Limits:** card look-ups and checkouts are limited per client address (see [Configuration](#configuration)). There is no PIN: see [Known limitations](#known-limitations).
+- **PINs:** a patron cannot use the kiosk until Reception or Admin sets a PIN on the **Borrowers** page. PINs are exactly 6 digits (leading zeros count) and stored only as a salted hash (ASP.NET Core Identity's password hasher). The Borrowers page shows only whether a PIN is set or locked. Five wrong PINs lock the card at the kiosk for 15 minutes; setting a new PIN unlocks it and ends any kiosk session the patron has open. There are no demo PINs: set one for a demo borrower from the Borrowers page.
+- **Limits:** card and PIN attempts and checkouts are limited per client address (see [Configuration](#configuration)).
 
 ### REST API (read-only, API key)
 - **Endpoints:** `GET /api/v1/items`, `/api/v1/items/{libraryCode}`, `/api/v1/categories`, `/api/v1/status`.
@@ -236,7 +238,7 @@ Files are limited to 1 MB and 1000 rows, UTF-8. Import adds items only; it does 
 [`docs/SECTION2_REQUIREMENTS.md`](docs/SECTION2_REQUIREMENTS.md), [`docs/SECTION2_USER_GUIDE.md`](docs/SECTION2_USER_GUIDE.md), [`docs/SECTION2_API.md`](docs/SECTION2_API.md), [`docs/SECTION2_USER_JOURNEYS.md`](docs/SECTION2_USER_JOURNEYS.md), [`docs/SECTION2_NOTES.md`](docs/SECTION2_NOTES.md). Screenshots are in `docs/section2-images`.
 
 ### Tests
-Section 2 tests are in `Tests/KioskServiceTests.cs`, `Tests/KioskControllerTests.cs`, `Tests/KioskSessionTests.cs`, `Tests/CatalogueApiTests.cs` and `Tests/ItemImportServiceTests.cs`.
+Section 2 tests are in `Tests/KioskServiceTests.cs`, `Tests/KioskControllerTests.cs`, `Tests/KioskSessionTests.cs`, `Tests/KioskPinTests.cs`, `Tests/CatalogueApiTests.cs` and `Tests/ItemImportServiceTests.cs`.
 
 ## Section 3: Reservations and notifications
 
@@ -287,6 +289,7 @@ Changes made when the three sections were combined. Regression tests are in `Tes
 | Library codes | The desk, the hold form and the kiosk all accept a code typed in lower case or with spaces (`Data/ItemLookupExtensions.cs`) |
 | Kiosk | Card look-ups and checkouts are rate limited |
 | Kiosk sign-out | After signing out, the welcome screen says so and offers **Back to Main Site**; that link never appears while a patron is signed in |
+| Kiosk PIN | Sign-in needs the card number and a 6-digit PIN set by Reception or Admin (`Services/KioskPinService.cs`, migration `AddKioskPin`). Unknown card and wrong PIN give the same message; 5 wrong PINs lock the card for 15 minutes; a PIN change ends the patron's kiosk sessions. Editing a borrower can no longer touch the PIN fields. Admin can open the Borrowers page for PINs only. Tests: `Tests/KioskPinTests.cs` |
 | Kiosk sessions | Sign-in now creates a server-side session (Post/Redirect/Get). Checkout takes the patron from the session, not from a hidden card-number field. Finish, the idle timer, the welcome screen and server-side expiry end the session. Sign-in forms work once, so Back, refresh, resubmission and replaying the old sign-in post cannot reopen an account. Kiosk pages are sent `no-store`, and the account page shows only the last two digits of the card. Tests: `Tests/KioskSessionTests.cs` |
 | REST API | Numeric or unknown `status` values return 400 |
 | CSV import | A file over 1 MB is answered with the importer's own message |
@@ -328,7 +331,8 @@ Most tests use the EF Core InMemory provider. Tests for concurrency, unique inde
 
 - The project targets .NET 8; the assignment requires .NET 10. The upgrade has not been done or tested.
 - Installation has not yet been tested on the designated virtual machine.
-- **Kiosk sign-in uses the card number only.** The number is derived from the borrower Id, so it can be guessed. Rate limiting slows guessing, but anyone who knows a number can see that patron's loans and fines and borrow on their card. A PIN or card secret needs a database migration. Server-side sessions stop the *next* person reopening an account after sign-out, but not someone who knows the card number.
+- **Kiosk PINs are short.** A 6-digit PIN with a 15-minute lockout after 5 wrong tries is a usability compromise: it stops casual guessing, not a determined attacker who can watch a patron type it. Anyone who knows a card number can also lock that card for 15 minutes by typing wrong PINs. If the database were copied, 6-digit PINs could be recovered from their hashes by trying every combination, so the database must be protected like any credential store.
+- Patrons cannot set or change their own PIN; staff set it at the desk.
 - Kiosk sessions are held in memory: they suit one server instance, and a restart signs every kiosk out.
 - Fines cannot be paid, items cannot be returned and holds cannot be placed at the kiosk.
 - API keys live in configuration; there is no key management page. The rate limiters are in memory, which suits one server instance.

@@ -8,6 +8,9 @@ public class KioskCardForm
 {
     public string? CardNumber { get; set; }
 
+    /// <summary>The 6-digit kiosk PIN, kept as text so leading zeros count. Never echoed back.</summary>
+    public string? Pin { get; set; }
+
     /// <summary>One-time token from the welcome screen; a replayed form is refused.</summary>
     public string? SignInToken { get; set; }
 }
@@ -43,4 +46,16 @@ public class KioskAccountViewModel
 
     /// <summary>Echoed back into the code box after a failed attempt.</summary>
     public string? LibraryCode { get; init; }
+}
+
+/// <summary>Posted by staff to set or reset a patron's kiosk PIN.</summary>
+public class KioskPinForm
+{
+    public string? Pin { get; set; }
+    public string? ConfirmPin { get; set; }
+}
+
+public class KioskPinViewModel
+{
+    public required Borrower Borrower { get; init; }
 }

@@ -6,7 +6,7 @@
 }
 <section class="kiosk-panel kiosk-welcome">
     <h1>Welcome</h1>
-    <p class="kiosk-lead">Scan your library card, or type your card number, to borrow items and see your account.</p>
+    <p class="kiosk-lead">Scan your library card, or type your card number, then type your 6-digit PIN to borrow items and see your account.</p>
 
     @if (Model.SignedOut)
     {
@@ -18,18 +18,26 @@
         <div class="kiosk-message kiosk-error" role="alert"><i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i> @Model.Error</div>
     }
 
-    <form method="post" asp-action="OpenAccount" asp-route-branchCode="@Model.Branch.Code" class="kiosk-form" id="kioskSignIn">
+    <form method="post" asp-action="OpenAccount" asp-route-branchCode="@Model.Branch.Code" class="kiosk-form" id="kioskSignIn" autocomplete="off">
         <input type="hidden" name="SignInToken" value="@Model.SignInToken" />
         <label for="CardNumber" class="kiosk-label">Library card number</label>
         <div class="kiosk-input-row">
             <i class="bi bi-upc-scan" aria-hidden="true"></i>
-            <input id="CardNumber" name="CardNumber" value="@Model.CardNumber" autofocus autocomplete="off"
-                   autocapitalize="characters" spellcheck="false" enterkeyhint="go" placeholder="e.g. P0001" />
+            <input id="CardNumber" name="CardNumber" value="@Model.CardNumber" autofocus autocomplete="off" required
+                   autocapitalize="characters" spellcheck="false" enterkeyhint="next" placeholder="e.g. P0001" />
         </div>
+        <label for="Pin" class="kiosk-label">6-digit PIN</label>
+        <div class="kiosk-input-row">
+            <i class="bi bi-key-fill" aria-hidden="true"></i>
+            @* A real password box, so every browser masks it. autocomplete="new-password" stops
+               Chrome, Edge and Firefox filling in a saved login (such as a staff password). *@
+            <input id="Pin" name="Pin" type="password" class="pin-input" inputmode="numeric" pattern="[0-9]{6}" minlength="6" maxlength="6"
+                   autocomplete="new-password" autocorrect="off" autocapitalize="off" spellcheck="false" required enterkeyhint="go" aria-describedby="pinHint" />
+        </div>
+        <p class="kiosk-hint" id="pinHint">No PIN yet, or forgotten it? Library staff at the desk can set one for you.</p>
         <button type="submit" class="kiosk-btn"><i class="bi bi-arrow-right-circle-fill" aria-hidden="true"></i> Continue</button>
     </form>
 
-    <p class="kiosk-hint">A barcode scanner types the number for you and presses Enter automatically.</p>
 
     @* Only on this screen, where no patron is signed in, so leaving never carries an account with it. *@
     <nav class="kiosk-exit" aria-label="Leave the kiosk">
@@ -48,6 +56,12 @@
             if (e.persisted) window.location.reload();
         });
         const card = document.getElementById('CardNumber');
+        const pin = document.getElementById('Pin');
+        // A barcode scanner types the card number and presses Enter: move on to the PIN.
+        card.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter' && pin.value === '') { e.preventDefault(); pin.focus(); }
+        });
+        if (card.value !== '') pin.focus();
         setInterval(function () {
             if (card.value === '') window.location.reload();
         }, 30 * 60 * 1000);

@@ -1,0 +1,64 @@
+@model KioskPinViewModel
+@{
+    var b = Model.Borrower;
+    ViewData["Title"] = b.HasKioskPin ? "Reset Kiosk PIN" : "Set Kiosk PIN";
+    var locked = b.KioskPinLockedUntilUtc > DateTime.UtcNow;
+}
+
+<div class="narrow">
+
+    <h1><i class="bi bi-key" aria-hidden="true"></i> @ViewData["Title"]</h1>
+
+    <form method="post" asp-action="KioskPin" asp-route-id="@b.Id" class="form-card" autocomplete="off">
+
+        <p><strong>@b.FullName</strong> &middot; card <code>@b.CardNumber</code></p>
+        <p>
+            @if (locked)
+            {
+                <span class="status status-damaged">Locked until @b.KioskPinLockedUntilUtc!.Value.ToLocalTime().ToString("h:mm tt")</span>
+                <span class="field-hint">Setting a new PIN unlocks the card straight away.</span>
+            }
+            else if (b.HasKioskPin)
+            {
+                <span class="status status-available">PIN set</span>
+                @if (b.KioskPinSetAtUtc.HasValue)
+                {
+                    <span class="field-hint">on @b.KioskPinSetAtUtc.Value.ToLocalTime().ToString("d MMM yyyy, h:mm tt")</span>
+                }
+            }
+            else
+            {
+                <span class="status status-borrowed">No PIN yet</span>
+                <span class="field-hint">This patron cannot use the kiosk until a PIN is set.</span>
+            }
+        </p>
+
+        @if (!ViewData.ModelState.IsValid)
+        {
+            <div asp-validation-summary="All" class="validation" role="alert"></div>
+        }
+
+        <div class="field">
+            <label for="Pin">New 6-digit PIN</label>
+            @* new-password: the browser must not fill in the staff member's own saved password. *@
+            <input id="Pin" name="Pin" type="password" class="pin-input" inputmode="numeric" pattern="[0-9]{6}" minlength="6" maxlength="6"
+                   autocomplete="new-password" autocorrect="off" autocapitalize="off" spellcheck="false" required aria-describedby="pinRules" />
+            <span class="field-hint" id="pinRules">Exactly 6 digits. Leading zeros count (012345 is different from 12345). Let the patron type it, or tell it to them privately.</span>
+        </div>
+
+        <div class="field">
+            <label for="ConfirmPin">Type the PIN again</label>
+            <input id="ConfirmPin" name="ConfirmPin" type="password" class="pin-input" inputmode="numeric" pattern="[0-9]{6}" minlength="6" maxlength="6"
+                   autocomplete="new-password" autocorrect="off" autocapitalize="off" spellcheck="false" required />
+        </div>
+
+        <p class="field-hint">Saving ends any kiosk session this patron has open and clears any lockout. The PIN is stored only as a secure hash and cannot be looked up later.</p>
+
+        <div class="button-row">
+            <button class="btn" type="submit"><i class="bi bi-check2" aria-hidden="true"></i> Save PIN</button>
+            <a class="btn btn-secondary" asp-action="Index"><i class="bi bi-arrow-left" aria-hidden="true"></i> Back to Borrowers</a>
+        </div>
+
+    </form>
+
+</div>

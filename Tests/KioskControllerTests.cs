@@ -82,11 +82,11 @@ public class KioskControllerTests
         var browser = new KioskBrowser(db);
         var token = await browser.WelcomeTokenAsync();
 
-        var view = await browser.Send<ViewResult>(c => c.OpenAccount("CEN", new KioskCardForm { CardNumber = "P9999", SignInToken = token }));
+        var view = await browser.Send<ViewResult>(c => c.OpenAccount("CEN", new KioskCardForm { CardNumber = "P9999", Pin = KioskBrowser.TestPin, SignInToken = token }));
 
         Assert.Equal("Welcome", view.ViewName);
         var model = Assert.IsType<KioskWelcomeViewModel>(view.Model);
-        Assert.Contains("not recognised", model.Error);
+        Assert.Contains("do not match", model.Error);
         Assert.NotEqual(token, model.SignInToken);              // a fresh form for the next try
         Assert.Null(browser.SessionCookie);
     }
@@ -98,9 +98,10 @@ public class KioskControllerTests
         using var db = testDb.Open();
         var borrower = await Section1.AddBorrowerAsync(db, "Alice Nguyen");
         var browser = new KioskBrowser(db);
+        await browser.GivePinAsync(borrower);
         var token = await browser.WelcomeTokenAsync();
 
-        var redirect = await browser.Send<RedirectToActionResult>(c => c.OpenAccount("CEN", new KioskCardForm { CardNumber = borrower.CardNumber, SignInToken = token }));
+        var redirect = await browser.Send<RedirectToActionResult>(c => c.OpenAccount("CEN", new KioskCardForm { CardNumber = borrower.CardNumber, Pin = KioskBrowser.TestPin, SignInToken = token }));
         Assert.Equal("Account", redirect.ActionName);
 
         var view = await browser.Send<ViewResult>(c => c.Account("CEN"));

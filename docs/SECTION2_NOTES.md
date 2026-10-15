@@ -6,6 +6,8 @@
 ## No migration
 Section 2 adds no tables or columns, so there is **no migration** and no snapshot conflict. The library card number is not stored: `Borrower.CardNumber` is `[NotMapped]` and derived from the Id (`P0007`).
 
+> **Integration update (15 October 2026):** the kiosk PIN added during integration needs one migration, `AddKioskPin`, which adds four nullable or zero-default columns to `Borrowers`. The card number is still not stored. See the README's Integration notes.
+
 ## Files added
 - `Services/KioskService.cs`, `Controllers/KioskController.cs`, `ViewModels/KioskViewModels.cs`
 - `Views/Kiosk/` (Index, Welcome, Account, BranchNotFound), `Views/Shared/_KioskLayout.cshtml`, `wwwroot/css/kiosk.css`
@@ -45,6 +47,7 @@ Manual end-to-end checks on a real SQLite database: API authentication, filters,
 
 ## Known limitations
 - **L1. No PIN.** The card number is derived from the borrower Id, so it is guessable. Anyone who knows a number can borrow on that card. A real deployment would add a PIN or a barcode secret (which needs a migration).
+  *Integration update (15 October 2026):* addressed. The kiosk now needs a 6-digit PIN set by Reception or Admin, with a lockout after 5 wrong tries (migration `AddKioskPin`).
 - **L2.** Fines cannot be paid, items cannot be returned and holds cannot be placed at the kiosk.
 - **L3.** API keys live in configuration; there is no key management page.
 - **L4.** Import adds items only (no update) and accepts UTF-8 CSV only.

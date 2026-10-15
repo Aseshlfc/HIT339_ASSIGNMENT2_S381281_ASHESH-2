@@ -29,6 +29,9 @@ internal sealed class KioskBrowser
 {
     public const string CookieName = "LibraryKiosk";
 
+    /// <summary>A PIN used only by these tests. The leading zero is deliberate.</summary>
+    public const string TestPin = "024680";
+
     private readonly LibraryContext _db;
 
     public KioskBrowser(LibraryContext db, KioskSessionStore? store = null, FakeClock? clock = null)
@@ -36,7 +39,13 @@ internal sealed class KioskBrowser
         _db = db;
         Clock = clock ?? new FakeClock();
         Store = store ?? new KioskSessionStore(new EphemeralDataProtectionProvider(), Options.Create(new KioskOptions()), Clock);
+        Pins = new KioskPinService(db, Store, Clock);
     }
+
+    public KioskPinService Pins { get; }
+
+    /// <summary>Gives the patron the test PIN, as staff would on the Borrowers page.</summary>
+    public async Task GivePinAsync(Borrower patron, string pin = TestPin) => Assert.True(await Pins.SetPinAsync(patron.Id, pin));
 
     public FakeClock Clock { get; }
     public KioskSessionStore Store { get; }
@@ -48,7 +57,7 @@ internal sealed class KioskBrowser
     public KioskController Controller()
     {
         var kiosk = new KioskService(_db, new NotificationService(_db, NullLogger<NotificationService>.Instance));
-        var controller = new KioskController(_db, kiosk, Store);
+        var controller = new KioskController(_db, kiosk, Store, Pins);
         ControllerTestHelpers.AttachContext(controller);
         if (SessionCookie != null)
             controller.HttpContext.Request.Headers.Cookie = $"{CookieName}={SessionCookie}";
@@ -77,10 +86,13 @@ internal sealed class KioskBrowser
         return Assert.IsType<KioskWelcomeViewModel>(view.Model).SignInToken;
     }
 
+    /// <summary>Signs in with the test PIN, giving the patron that PIN first if they have none.</summary>
     public async Task<KioskAccountViewModel> SignInAsync(Borrower patron, string branchCode = "CEN")
     {
+        if (!await _db.Borrowers.AnyAsync(b => b.Id == patron.Id && b.KioskPinHash != null))
+            await GivePinAsync(patron);
         var token = await WelcomeTokenAsync(branchCode);
-        await Send<RedirectToActionResult>(c => c.OpenAccount(branchCode, new KioskCardForm { CardNumber = patron.CardNumber, SignInToken = token }));
+        await Send<RedirectToActionResult>(c => c.OpenAccount(branchCode, new KioskCardForm { CardNumber = patron.CardNumber, Pin = TestPin, SignInToken = token }));
         return await AccountAsync(branchCode);
     }
 
@@ -125,7 +137,7 @@ public class KioskSessionTests
         var controller = browser.Controller();
         controller.HttpContext.Request.Headers.Cookie = "";
         var token = browser.Store.CreateSignInToken(Branch.DefaultBranchId);
-        await controller.OpenAccount("CEN", new KioskCardForm { CardNumber = patron.CardNumber, SignInToken = token });
+        await controller.OpenAccount("CEN", new KioskCardForm { CardNumber = patron.CardNumber, Pin = KioskBrowser.TestPin, SignInToken = token });
         var setCookie = controller.Response.Headers.SetCookie.Last()!.ToLowerInvariant();
         Assert.Contains("httponly", setCookie);
         Assert.Contains("samesite=strict", setCookie);
@@ -163,8 +175,9 @@ public class KioskSessionTests
         using var db = testDb.Open();
         var patron = await Section1.AddBorrowerAsync(db);
         var browser = new KioskBrowser(db);
+        await browser.GivePinAsync(patron);
         var token = await browser.WelcomeTokenAsync();
-        var oldPost = new KioskCardForm { CardNumber = patron.CardNumber, SignInToken = token };
+        var oldPost = new KioskCardForm { CardNumber = patron.CardNumber, Pin = KioskBrowser.TestPin, SignInToken = token };
 
         await browser.Send<RedirectToActionResult>(c => c.OpenAccount("CEN", oldPost));
         await browser.Send<RedirectToActionResult>(c => c.Finish("CEN"));
@@ -190,7 +203,7 @@ public class KioskSessionTests
         using var db = testDb.Open();
         var browser = new KioskBrowser(db);
         var token = await browser.WelcomeTokenAsync();
-        var post = new KioskCardForm { CardNumber = "P9999", SignInToken = token };
+        var post = new KioskCardForm { CardNumber = "P9999", Pin = KioskBrowser.TestPin, SignInToken = token };
 
         await browser.Send<ViewResult>(c => c.OpenAccount("CEN", post));
         var again = await browser.Send<ViewResult>(c => c.OpenAccount("CEN", post));
@@ -211,6 +224,7 @@ public class KioskSessionTests
         var (_, north, _) = await Section1.SeedBranchesAsync(db);
         var patron = await Section1.AddBorrowerAsync(db);
         var browser = new KioskBrowser(db);
+        await browser.GivePinAsync(patron);
         var good = await browser.WelcomeTokenAsync();
         var token = kind switch
         {
@@ -219,7 +233,7 @@ public class KioskSessionTests
             _ => browser.Store.CreateSignInToken(north.Id)
         };
 
-        var view = await browser.Send<ViewResult>(c => c.OpenAccount("CEN", new KioskCardForm { CardNumber = patron.CardNumber, SignInToken = token }));
+        var view = await browser.Send<ViewResult>(c => c.OpenAccount("CEN", new KioskCardForm { CardNumber = patron.CardNumber, Pin = KioskBrowser.TestPin, SignInToken = token }));
 
         Assert.Equal("Welcome", view.ViewName);
         Assert.Null(browser.SessionCookie);
@@ -232,11 +246,12 @@ public class KioskSessionTests
         using var db = testDb.Open();
         var patron = await Section1.AddBorrowerAsync(db);
         var browser = new KioskBrowser(db);
+        await browser.GivePinAsync(patron);
         var token = await browser.WelcomeTokenAsync();
 
         browser.Clock.Advance(TimeSpan.FromMinutes(new KioskOptions().SignInFormMinutes));
 
-        await browser.Send<ViewResult>(c => c.OpenAccount("CEN", new KioskCardForm { CardNumber = patron.CardNumber, SignInToken = token }));
+        await browser.Send<ViewResult>(c => c.OpenAccount("CEN", new KioskCardForm { CardNumber = patron.CardNumber, Pin = KioskBrowser.TestPin, SignInToken = token }));
         Assert.Null(browser.SessionCookie);
     }
 
@@ -285,12 +300,14 @@ public class KioskSessionTests
         var alice = await Section1.AddBorrowerAsync(db, "Alice");
         var bob = await Section1.AddBorrowerAsync(db, "Bob");
         var browser = new KioskBrowser(db);
+        await browser.GivePinAsync(alice);
+        await browser.GivePinAsync(bob);
 
         // An attacker plants a cookie value before the patron signs in.
         const string planted = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
         var token = await browser.WelcomeTokenAsync();
         browser.SessionCookie = planted;
-        await browser.Send<RedirectToActionResult>(c => c.OpenAccount("CEN", new KioskCardForm { CardNumber = alice.CardNumber, SignInToken = token }));
+        await browser.Send<RedirectToActionResult>(c => c.OpenAccount("CEN", new KioskCardForm { CardNumber = alice.CardNumber, Pin = KioskBrowser.TestPin, SignInToken = token }));
 
         Assert.NotEqual(planted, browser.SessionCookie);
         Assert.Null(browser.Store.Find(planted));
@@ -298,7 +315,7 @@ public class KioskSessionTests
 
         // Signing in again (Bob) on the same browser ends Alice's session on the server.
         var bobToken = browser.Store.CreateSignInToken(Branch.DefaultBranchId);
-        await browser.Send<RedirectToActionResult>(c => c.OpenAccount("CEN", new KioskCardForm { CardNumber = bob.CardNumber, SignInToken = bobToken }));
+        await browser.Send<RedirectToActionResult>(c => c.OpenAccount("CEN", new KioskCardForm { CardNumber = bob.CardNumber, Pin = KioskBrowser.TestPin, SignInToken = bobToken }));
         Assert.Null(browser.Store.Find(aliceSession));
         Assert.Equal("Bob", (await browser.AccountAsync()).Account.Patron.FullName);
     }
@@ -380,7 +397,7 @@ public class KioskSessionTests
     {
         var store = new KioskSessionStore(new EphemeralDataProtectionProvider(), Options.Create(new KioskOptions()), new FakeClock());
 
-        var ids = Enumerable.Range(0, 500).Select(_ => store.Start(1, 1).Id).ToList();
+        var ids = Enumerable.Range(0, 500).Select(_ => store.Start(1, 1, null).Id).ToList();
 
         Assert.All(ids, id => Assert.Matches("^[0-9a-f]{64}$", id));
         Assert.Equal(ids.Count, ids.Distinct().Count());

@@ -7,14 +7,14 @@ Demo library cards: **P0001** Alice Nguyen, **P0002** Ben Carter (has an overdue
 
 ## Part 1 - Using the kiosk (patrons)
 
-No login is needed. Staff open the kiosk page for their branch, for example `/kiosk/CEN` for Central, and leave it on screen. The **Kiosk** link in the menu also opens it.
+You need your library card number and a 6-digit kiosk PIN. Library staff set up your PIN at the desk; there is no PIN until they do. Staff open the kiosk page for their branch, for example `/kiosk/CEN` for Central, and leave it on screen. The **Kiosk** link in the menu also opens it.
 
 ### Borrow an item
 1. **Choose the branch** (only if the kiosk was opened at `/kiosk`). Tap your branch.
 
    ![Choose branch](section2-images/kiosk-01-choose-branch.png)
 
-2. **Identify yourself.** Scan your library card or type the number (for example `P0005`) and press Enter or tap **Continue**.
+2. **Identify yourself.** Scan your library card or type the number (for example `P0005`). Then type your 6-digit PIN and press Enter or tap **Continue**. If you scan your card, the kiosk moves to the PIN box by itself. Your PIN is hidden as you type. Cover the keypad if someone is close by.
 
    ![Welcome](section2-images/kiosk-02-welcome.png)
 
@@ -35,7 +35,10 @@ The kiosk signs you out by itself after 60 seconds without use, so the next pers
 ### Messages you might see
 | Message | What it means | What to do |
 |---|---|---|
-| "That card number was not recognised..." | No patron has that number. | Check the number on your card, or ask at the desk. |
+| "That card number and PIN do not match..." | The card number or the PIN is wrong. For your security the kiosk does not say which. | Check both and try again. After 5 wrong PINs the card is locked for 15 minutes. |
+| "Type your 6-digit kiosk PIN." | The PIN box was empty or did not have exactly 6 digits. | Type all 6 digits, including any leading zeros. |
+| "This card does not have a kiosk PIN yet..." | Staff have not set up a PIN for your card. | Ask at the desk. Staff can set one in a minute. |
+| "Too many incorrect PINs..." | 5 wrong PINs were typed for this card. | Wait 15 minutes, or ask at the desk: staff can set a new PIN, which unlocks the card straight away. |
 | "No item was found with the code..." | The item code is wrong. | Retype the code from the item's label. |
 | "...is currently Borrowed (or Damaged...) and cannot be borrowed." | Someone else has it, or it is being repaired. | Ask library staff to place a hold. |
 | "...is held at Northside Branch, not Central Library." | The item belongs to another branch. | Ask staff about a transfer, or go to that branch. |
@@ -58,22 +61,34 @@ Fines are paid at the desk. The kiosk shows what you owe but cannot take payment
 ## Part 2 - Library staff
 
 ### Finding a patron's card number
-Open **Borrowers** (Reception, Manager or Admin). Each patron has a **Card number** column, for example `P0005`. Patrons can then use that number at the kiosk.
+Open **Borrowers** (Reception or Admin). Each patron has a **Card number** column, for example `P0005`. Patrons can then use that number at the kiosk.
+
+### Setting or resetting a kiosk PIN (Reception or Admin)
+1. Open **Borrowers**. The **Kiosk PIN** column shows **Set**, **Not set** or **Locked until** a time. It never shows the PIN.
+2. Tap **Set PIN**, or **Reset PIN** if the patron already has one.
+3. Type a 6-digit PIN twice. Let the patron type it, or tell it to them privately. Leading zeros count: `012345` is not the same as `12345`.
+4. Tap **Save PIN**.
+
+Saving clears any lockout and ends any kiosk session the patron has open. The PIN is stored only as a secure hash, so nobody can look it up later. If a patron forgets their PIN, set a new one. Admin staff can open the Borrowers page to set PINs, but only Reception can add, edit or delete borrowers.
+
+There are no demonstration PINs. To try the kiosk with a demo borrower, set a PIN for them here first.
 
 ![Card numbers](section2-images/staff-01-borrowers-card-numbers.png)
 
 ### How kiosk sign-in is protected
-- **Sign-in:** after a card is accepted, the kiosk keeps the patron signed in through a short session held on the library's server. The browser holds only a random session number, in a cookie that page scripts cannot read and other websites cannot use. The card number is never stored in the page or the cookie.
+- **PIN:** sign-in needs the card number and the patron's 6-digit PIN. A wrong card and a wrong PIN give the same message, so the kiosk does not reveal which card numbers exist. Five wrong PINs lock the card at the kiosk for 15 minutes.
+- **Sign-in:** after the card and PIN are accepted, the kiosk keeps the patron signed in through a short session held on the library's server. The browser holds only a random session number, in a cookie that page scripts cannot read and other websites cannot use. The card number is never stored in the page or the cookie.
 - **Ending a session:** **Finish and sign out**, the 60-second idle timer and opening the welcome screen all end the session on the server. The server also ends it after 3 minutes without use and 20 minutes in total.
 - **One-use welcome screen:** each welcome screen can sign in once. Pressing Back and resending an earlier sign-in is refused, even with a valid card number.
 - **Borrowing:** loans are always made to the signed-in patron at that kiosk's branch. A session started at one branch cannot be used at another.
-- **Rate limiting:** card look-ups and borrowing are still limited to 30 per minute per kiosk.
+- **Rate limiting:** sign-in attempts and borrowing are still limited to 30 per minute per kiosk.
 - **Restarts:** sessions are kept in the server's memory, so restarting the application signs every kiosk out.
 
-**What is still not protected (no PIN yet):**
-- Anyone who knows or guesses a card number can sign in as that patron, see their loans, fines and reservations, and borrow on their card. Card numbers follow the borrower number (`P0001`, `P0002`, ...), so they are easy to guess.
-- Someone who watches the patron type their number can use it later.
-- Fixing this needs a PIN or card secret, which needs a database change and is a separate decision.
+**What is still not fully protected:**
+- Someone who watches a patron type their card number and PIN can use them later. Patrons should cover the keypad.
+- Anyone who knows a card number can lock that card for 15 minutes by typing wrong PINs. Staff can unlock it by setting a new PIN.
+- A 6-digit PIN can be guessed if someone has a copy of the database, so the database file must be kept private.
+- **Kiosk browser settings:** turn off password saving on the kiosk browser, so it never offers to remember a card number and PIN. The page already stops saved passwords being filled in, but only the browser setting can stop the "save password" offer. Use the `PasswordManagerEnabled` policy (set to false) for Chrome and Edge, or `PasswordManagerEnabled` / `OfferToSaveLogins` (false) for Firefox, or turn it off in the browser's password settings.
 - The account screen stays visible until the patron finishes or the 60-second timer runs out, so patrons should still tap **Finish and sign out**.
 
 **Settings:** the session times can be changed in `appsettings.json` under `Kiosk`: `SessionIdleMinutes` (default 3), `SessionMaxMinutes` (20) and `SignInFormMinutes` (60).

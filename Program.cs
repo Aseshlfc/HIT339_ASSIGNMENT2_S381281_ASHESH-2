@@ -28,10 +28,9 @@ builder.Services.AddScoped<IDueDateReminderService, DueDateReminderService>();
 
 // Section 2: self-service kiosk, CSV import and the public read-only API.
 builder.Services.AddScoped<IKioskService, KioskService>();
-builder.Services.AddSingleton<IKioskSessionStore>(sp => new KioskSessionStore(
-    sp.GetRequiredService<Microsoft.AspNetCore.DataProtection.IDataProtectionProvider>(),
-    sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<KioskOptions>>(),
-    TimeProvider.System));
+builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddSingleton<IKioskSessionStore, KioskSessionStore>();
+builder.Services.AddScoped<IKioskPinService, KioskPinService>();
 builder.Services.AddScoped<IItemImportService, ItemImportService>();
 builder.Services.Configure<PublicApiOptions>(builder.Configuration.GetSection(PublicApiOptions.SectionName));
 builder.Services.AddScoped<ApiKeyFilter>();
