@@ -225,6 +225,75 @@ public class KioskControllerTests
         Assert.Contains("<partial name=\"_BackToMainSite\" />", markup);
     }
 
+    [Fact]
+    public async Task Welcome_ExplainsBothStepsAndWhereToGetHelp()
+    {
+        var welcome = await File.ReadAllTextAsync(ViewPath("Welcome.cshtml"));
+
+        // Hints and inline errors are tied to their boxes for screen readers.
+        Assert.Contains("aria-describedby=\"cardHint cardError\"", welcome);
+        Assert.Contains("aria-describedby=\"pinHint pinError\"", welcome);
+        Assert.Contains("id=\"cardError\" aria-live=\"polite\"", welcome);
+        Assert.Contains("id=\"pinError\" aria-live=\"polite\"", welcome);
+
+        // First-time patrons and forgotten PINs are sent to Reception.
+        Assert.Contains("First time here, or forgotten your PIN?", welcome);
+        Assert.Contains("Reception desk", welcome);
+
+        // The form checks itself and explains problems in the kiosk's words.
+        Assert.Contains("novalidate", welcome);
+        Assert.Contains("Enter your 6-digit PIN.", welcome);
+    }
+
+    [Theory]
+    [InlineData("Welcome.cshtml")]
+    [InlineData("Account.cshtml")]
+    public async Task ScanningIsOnlyMentionedAsAnOption_NeverPromised(string view)
+    {
+        // The application has no camera or barcode reading of its own. A scanner works only
+        // if one is attached and types like a keyboard, so the screens say "if".
+        var markup = await File.ReadAllTextAsync(ViewPath(view));
+
+        Assert.Contains("If this kiosk has a", markup);
+        Assert.DoesNotContain("Scan your library card", markup);
+        Assert.DoesNotContain("Scan or type", markup);
+    }
+
+    [Fact]
+    public async Task BranchChoice_ShowsNoStaffInstructionsToPatrons()
+    {
+        var markup = await File.ReadAllTextAsync(ViewPath("Index.cshtml"));
+        var visible = System.Text.RegularExpressions.Regex.Replace(markup, "@\\*.*?\\*@", "", System.Text.RegularExpressions.RegexOptions.Singleline);
+
+        Assert.DoesNotContain("Staff:", visible);
+        Assert.DoesNotContain("bookmark", visible);
+    }
+
+    [Fact]
+    public async Task Account_CanOnlyBeLeftThroughTheServerSideSignOut()
+    {
+        var account = await File.ReadAllTextAsync(ViewPath("Account.cshtml"));
+        var layout = await File.ReadAllTextAsync(Path.Combine(Path.GetDirectoryName(Path.GetDirectoryName(ViewPath("Account.cshtml")))!, "Shared", "_KioskLayout.cshtml"));
+
+        // Top and bottom buttons both submit the one sign-out form.
+        Assert.Contains("<form method=\"post\" asp-action=\"Finish\"", account);
+        Assert.Contains("form=\"kioskFinish\"", account);
+
+        // No link off the signed-in screen: not to the welcome screen, the main site or anywhere else.
+        Assert.DoesNotContain("<a ", account);
+        Assert.DoesNotContain("<a ", layout);
+    }
+
+    [Fact]
+    public async Task Account_BorrowBoxExplainsAnEmptyCodeNextToIt()
+    {
+        var account = await File.ReadAllTextAsync(ViewPath("Account.cshtml"));
+
+        Assert.Contains("aria-describedby=\"codeHint codeError\"", account);
+        Assert.Contains("id=\"codeError\" aria-live=\"polite\"", account);
+        Assert.Contains("Enter the library code on the item.", account);
+    }
+
     // Regression: on phones the staff menu's <nav> styles (right padding, fade-out mask)
     // also hit the kiosk's exit landmark, squeezing and fading the button.
     [Fact]

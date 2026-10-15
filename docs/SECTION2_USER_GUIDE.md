@@ -10,11 +10,12 @@ Demo library cards: **P0001** Alice Nguyen, **P0002** Ben Carter (has an overdue
 You need your library card number and a 6-digit kiosk PIN. Library staff set up your PIN at the desk; there is no PIN until they do. Staff open the kiosk page for their branch, for example `/kiosk/CEN` for Central, and leave it on screen. The **Kiosk** link in the menu also opens it.
 
 ### Borrow an item
-1. **Choose the branch** (only if the kiosk was opened at `/kiosk`). Tap your branch.
+1. **Choose the branch** (only if the kiosk was opened at `/kiosk`). Tap the library you are visiting.
 
    ![Choose branch](section2-images/kiosk-01-choose-branch.png)
 
-2. **Identify yourself.** Scan your library card or type the number (for example `P0005`). Then type your 6-digit PIN and press Enter or tap **Continue**. If you scan your card, the kiosk moves to the PIN box by itself. Your PIN is hidden as you type. Cover the keypad if someone is close by.
+2. **Sign in.** Step 1: type the number printed on your library card (for example `P0005`). Step 2: type your 6-digit PIN, then tap **Sign in** or press Enter. Pressing Enter after the card number moves you to the PIN box. Your PIN is hidden as you type; cover the keypad if someone is close by. If a box is empty or the PIN is not 6 digits, the kiosk says so under that box. No PIN yet, or forgotten it? The help panel on the same screen sends you to the Reception desk.
+   - *Card scanners:* the kiosk has no camera or barcode reader of its own. A scanner attached to the kiosk works only if it types like a keyboard. This has not been tested with real scanner hardware.
 
    ![Welcome](section2-images/kiosk-02-welcome.png)
 
@@ -22,8 +23,8 @@ You need your library card number and a 6-digit kiosk PIN. Library staff set up 
 
    ![Account](section2-images/kiosk-04-account.png)
 
-4. **Borrow.** Scan or type the library code printed on the item (for example `B003`) and tap **Borrow**.
-5. **Read the confirmation** showing the due date (14 days from today). Borrow more items, or tap **Finish and sign out**.
+4. **Borrow.** Type the library code printed on the item's label (for example `B003`) and tap **Borrow**, or scan the label if a scanner is attached.
+5. **Read the confirmation** showing the due date (14 days from today). Borrow more items, or tap **Finish and sign out**. The button is at the top and the bottom of the screen.
 
    ![Borrowed](section2-images/kiosk-05-borrow-success.png)
 
@@ -47,8 +48,9 @@ The kiosk signs you out by itself after 60 seconds without use, so the next pers
 | "Your session ended. Please scan your library card again." | You were idle for too long, or signed in for more than 20 minutes. | Scan your card again. |
 | "This screen has expired. Please scan your library card again." | The welcome screen was already used, or was left open for over an hour. This also appears if someone presses Back and resends an earlier sign-in. | Scan your card again on the fresh screen. |
 
-![Card not recognised](section2-images/kiosk-03-card-not-recognised.png)
-![Wrong branch](section2-images/kiosk-06-wrong-branch.png)
+![Card number or PIN not accepted](section2-images/kiosk-03-card-not-recognised.png)
+![Item held at another branch](section2-images/kiosk-06-wrong-branch.png)
+![Item already on loan](section2-images/kiosk-07-already-borrowed.png)
 
 The kiosk works on phones and tablets too:
 
@@ -63,6 +65,9 @@ Fines are paid at the desk. The kiosk shows what you owe but cannot take payment
 ### Finding a patron's card number
 Open **Borrowers** (Reception or Admin). Each patron has a **Card number** column, for example `P0005`. Patrons can then use that number at the kiosk.
 
+### Setting up a kiosk
+Open the kiosk page for the branch the device stands in, for example `/kiosk/CEN` for Central, and bookmark it so the kiosk always starts there. `/kiosk` on its own shows the branch choice. This instruction is no longer shown on the patrons' branch screen.
+
 ### Setting or resetting a kiosk PIN (Reception or Admin)
 1. Open **Borrowers**. The **Kiosk PIN** column shows **Set**, **Not set** or **Locked until** a time. It never shows the PIN.
 2. Tap **Set PIN**, or **Reset PIN** if the patron already has one.
@@ -73,7 +78,7 @@ Saving clears any lockout and ends any kiosk session the patron has open. The PI
 
 There are no demonstration PINs. To try the kiosk with a demo borrower, set a PIN for them here first.
 
-![Card numbers](section2-images/staff-01-borrowers-card-numbers.png)
+![Card numbers and kiosk PIN status](section2-images/staff-01-borrowers-card-numbers.png)
 
 ### How kiosk sign-in is protected
 - **PIN:** sign-in needs the card number and the patron's 6-digit PIN. A wrong card and a wrong PIN give the same message, so the kiosk does not reveal which card numbers exist. Five wrong PINs lock the card at the kiosk for 15 minutes.
