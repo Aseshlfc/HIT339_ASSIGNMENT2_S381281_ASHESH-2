@@ -14,11 +14,13 @@ public class ItemsController : Controller
     private readonly LibraryContext _db;
 
     private readonly ITransferService _transfers;
+    private readonly IReservationService? _reservations;
 
-    public ItemsController(LibraryContext db, ITransferService? transfers = null)
+    public ItemsController(LibraryContext db, ITransferService? transfers = null, IReservationService? reservations = null)
     {
         _db = db;
         _transfers = transfers ?? new TransferService(db);
+        _reservations = reservations;
     }
 
     public async Task<IActionResult> Index(int? branchId = null)
@@ -125,6 +127,7 @@ public class ItemsController : Controller
             return await FormView(model);
         }
 
+        var previousStatus = item.Status; 
         item.Name = model.Name;
         item.Description = model.Description;
         item.LibraryCode = model.LibraryCode;
@@ -161,6 +164,10 @@ public class ItemsController : Controller
             ModelState.AddModelError(string.Empty, "This item was changed by someone else just now. Please reload and try again.");
             return await FormView(model);
         }
+
+        // An Admin fixing a Damaged item makes it Available again: offer it to the first borrower in the queue.
+        if (_reservations != null && previousStatus != ItemStatus.Available && item.Status == ItemStatus.Available)
+            await _reservations.NotifyNextInQueueAsync(item);
 
         return RedirectToAction(nameof(Index));
     }

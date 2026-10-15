@@ -26,7 +26,7 @@ public class LoansControllerTests
     {
         using var db = TestDb.Create();
         var (item, borrower) = await SeedItemAndBorrowerAsync(db, "B900", ItemStatus.Available);
-        var controller = new LoansController(db);
+        var controller = LoansControllerFactory.Create(db);
 
         var result = await controller.Borrow(new BorrowViewModel { LibraryCode = "B900", BorrowerId = borrower.Id });
 
@@ -44,7 +44,7 @@ public class LoansControllerTests
     {
         using var db = TestDb.Create();
         var (_, borrower) = await SeedItemAndBorrowerAsync(db, "B901", ItemStatus.Borrowed);
-        var controller = new LoansController(db);
+        var controller = LoansControllerFactory.Create(db);
 
         var result = await controller.Borrow(new BorrowViewModel { LibraryCode = "B901", BorrowerId = borrower.Id });
 
@@ -58,7 +58,7 @@ public class LoansControllerTests
     {
         using var db = TestDb.Create();
         var (_, borrower) = await SeedItemAndBorrowerAsync(db, "B902", ItemStatus.Available);
-        var controller = new LoansController(db);
+        var controller = LoansControllerFactory.Create(db);
 
         var result = await controller.Borrow(new BorrowViewModel { LibraryCode = "DOES-NOT-EXIST", BorrowerId = borrower.Id });
 
@@ -76,7 +76,7 @@ public class LoansControllerTests
         db.Loans.Add(loan);
         await db.SaveChangesAsync();
 
-        var controller = new LoansController(db);
+        var controller = LoansControllerFactory.Create(db);
         var result = await controller.Return(new ReturnViewModel { LoanId = loan.Id, ReturnStatus = ItemStatus.Available });
 
         Assert.IsType<RedirectToActionResult>(result);
@@ -97,7 +97,7 @@ public class LoansControllerTests
         db.Loans.Add(loan);
         await db.SaveChangesAsync();
 
-        var controller = new LoansController(db);
+        var controller = LoansControllerFactory.Create(db);
         await controller.Return(new ReturnViewModel { LoanId = loan.Id, ReturnStatus = ItemStatus.Available });
 
         var updatedLoan = await db.Loans.SingleAsync(l => l.Id == loan.Id);
@@ -113,7 +113,7 @@ public class LoansControllerTests
         db.Loans.Add(loan);
         await db.SaveChangesAsync();
 
-        var controller = new LoansController(db);
+        var controller = LoansControllerFactory.Create(db);
         await controller.Return(new ReturnViewModel { LoanId = loan.Id, ReturnStatus = ItemStatus.Damaged });
 
         var updatedItem = await db.Items.SingleAsync(i => i.Id == item.Id);
@@ -138,7 +138,7 @@ public class LoansControllerTests
         db.Loans.Add(loan);
         await db.SaveChangesAsync();
 
-        var controller = new LoansController(db);
+        var controller = LoansControllerFactory.Create(db);
         await controller.MarkFinePaid(loan.Id);
 
         var updatedLoan = await db.Loans.SingleAsync(l => l.Id == loan.Id);
@@ -201,8 +201,8 @@ public class LoansControllerTests
             _ = await dbRequestA.Items.SingleAsync(i => i.Id == itemId);
             _ = await dbRequestB.Items.SingleAsync(i => i.Id == itemId);
 
-            var controllerA = new LoansController(dbRequestA);
-            var controllerB = new LoansController(dbRequestB);
+            var controllerA = LoansControllerFactory.Create(dbRequestA);
+            var controllerB = LoansControllerFactory.Create(dbRequestB);
 
             var resultA = await controllerA.Borrow(new BorrowViewModel { LibraryCode = "CONC1", BorrowerId = borrowerAId });
             var resultB = await controllerB.Borrow(new BorrowViewModel { LibraryCode = "CONC1", BorrowerId = borrowerBId });
@@ -257,7 +257,7 @@ public class LoansControllerTests
         db.Loans.Add(loan);
         await db.SaveChangesAsync();
 
-        var controller = new LoansController(db);
+        var controller = LoansControllerFactory.Create(db);
         await controller.MarkFinePaid(loan.Id);
 
         var updatedLoan = await db.Loans.SingleAsync(l => l.Id == loan.Id);

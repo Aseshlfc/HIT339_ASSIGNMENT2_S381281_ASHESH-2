@@ -1,0 +1,59 @@
+﻿@model IEnumerable<Notification>
+@{
+    ViewData["Title"] = "Notifications";
+    var selectedType = ViewBag.SelectedType as NotificationType?;
+}
+<div class="page-heading">
+    <div><h1>Notifications</h1><p>History of simulated email and SMS messages sent to borrowers.</p></div>
+    <form asp-action="RunDueDateCheck" method="post" class="inline-form">
+        <button class="btn" type="submit"><i class="bi bi-bell" aria-hidden="true"></i> Run due-date check</button>
+    </form>
+</div>
+<form method="get" class="search-panel">
+    <div class="field grow">
+        <label for="type">Notification type</label>
+        <select id="type" name="type">
+            <option value="">All types</option>
+            @foreach (var t in Enum.GetValues<NotificationType>())
+            {
+                <option value="@t" selected="@(selectedType == t)">@t</option>
+            }
+        </select>
+    </div>
+    <button class="btn" type="submit"><i class="bi bi-funnel" aria-hidden="true"></i> Filter</button>
+    <a class="btn btn-secondary" asp-action="Index"><i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i> Clear</a>
+</form>
+<div class="table-wrap">
+    <table>
+        <thead><tr><th>Sent</th><th>Borrower</th><th>Channel</th><th>Type</th><th>Message</th></tr></thead>
+        <tbody>
+            @foreach (var n in Model)
+            {
+                <tr>
+                    <td>@n.CreatedAt.ToLocalTime().ToString("dd MMM yyyy HH:mm")</td>
+                    <td>@(n.Borrower?.FullName ?? "Unknown borrower")</td>
+                    <td>
+                        <i class="bi @(n.Channel == NotificationChannel.Email ? "bi-envelope" : "bi-chat-dots")" aria-hidden="true"></i>
+                        @n.Channel
+                    </td>
+                    <td>
+                        <span class="status @(n.Type == NotificationType.FineIssued ? "status-damaged" : "status-available")">@n.Type</span>
+                    </td>
+                    <td>@n.Message</td>
+                </tr>
+            }
+            @if (!Model.Any())
+            {
+                <tr>
+                    <td colspan="5">
+                        <div class="empty-state">
+                            <i class="bi bi-bell-slash" aria-hidden="true"></i>
+                            <strong>No notifications yet</strong>
+                            Borrow an item or return an overdue loan to see messages appear here.
+                        </div>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>

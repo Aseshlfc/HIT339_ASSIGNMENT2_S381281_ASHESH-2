@@ -217,7 +217,7 @@ public class BranchIntegrationTests
         await Section1.AddBookAsync(db, "B1", north);
         var borrower = await Section1.AddBorrowerAsync(db);
 
-        await new LoansController(db).Borrow(new BorrowViewModel { LibraryCode = "B1", BorrowerId = borrower.Id });
+        await LoansControllerFactory.Create(db).Borrow(new BorrowViewModel { LibraryCode = "B1", BorrowerId = borrower.Id });
 
         Assert.Equal(north.Id, (await db.Loans.SingleAsync()).BranchId);
     }
@@ -230,7 +230,7 @@ public class BranchIntegrationTests
         await Section1.AddBookAsync(db, "B1", north);
         var borrower = await Section1.AddBorrowerAsync(db);
         await Section1.AddStaffAsync(db, "desk-central", central);
-        var controller = new LoansController(db);
+        var controller = LoansControllerFactory.Create(db);
         Section1.SignIn(controller, "desk-central", "Reception");
 
         var result = await controller.Borrow(new BorrowViewModel { LibraryCode = "B1", BorrowerId = borrower.Id });
@@ -248,7 +248,7 @@ public class BranchIntegrationTests
         await Section1.AddBookAsync(db, "B1", north);
         var borrower = await Section1.AddBorrowerAsync(db);
         await Section1.AddStaffAsync(db, "desk-north", north);
-        var controller = new LoansController(db);
+        var controller = LoansControllerFactory.Create(db);
         Section1.SignIn(controller, "desk-north", "Reception");
 
         var result = await controller.Borrow(new BorrowViewModel { LibraryCode = "B1", BorrowerId = borrower.Id });
@@ -267,7 +267,7 @@ public class BranchIntegrationTests
         var loan = new Loan { ItemId = book.Id, BorrowerId = borrower.Id, BorrowedAt = DateTime.Now, DueDate = DateTime.Now.AddDays(14) };
         db.Loans.Add(loan);
         await db.SaveChangesAsync();
-        var controller = new LoansController(db);
+        var controller = LoansControllerFactory.Create(db);
 
         await controller.Return(new ReturnViewModel { LoanId = loan.Id, ReturnStatus = ItemStatus.InTransit });
 
@@ -283,7 +283,7 @@ public class BranchIntegrationTests
         var book = await Section1.AddBookAsync(db, "B1", central);
         var borrower = await Section1.AddBorrowerAsync(db);
         await Section1.AddStaffAsync(db, "desk-none", null);
-        var controller = new LoansController(db);
+        var controller = LoansControllerFactory.Create(db);
         Section1.SignIn(controller, "desk-none", "Reception");
 
         var get = await controller.Borrow("B1");
@@ -303,7 +303,7 @@ public class BranchIntegrationTests
         var (central, _, _) = await Section1.SeedBranchesAsync(db);
         var (loan, book) = await AddOpenLoanAsync(db, central);
         await Section1.AddStaffAsync(db, "desk-none", null);
-        var controller = new LoansController(db);
+        var controller = LoansControllerFactory.Create(db);
         Section1.SignIn(controller, "desk-none", "Reception");
 
         await controller.Return(loan.Id);
@@ -331,7 +331,7 @@ public class BranchIntegrationTests
         var (central, _, _) = await Section1.SeedBranchesAsync(db);
         var (loan, book) = await AddOpenLoanAsync(db, central);
         await Section1.AddStaffAsync(db, "desk-central", central);
-        var controller = new LoansController(db);
+        var controller = LoansControllerFactory.Create(db);
         Section1.SignIn(controller, "desk-central", "Reception");
 
         await controller.Return(new ReturnViewModel { LoanId = loan.Id, ReturnStatus = ItemStatus.Available });
@@ -348,7 +348,7 @@ public class BranchIntegrationTests
         var (central, north, _) = await Section1.SeedBranchesAsync(db);
         var (loan, book) = await AddOpenLoanAsync(db, central, daysOverdue: 3);
         await Section1.AddStaffAsync(db, "desk-north", north);
-        var controller = new LoansController(db);
+        var controller = LoansControllerFactory.Create(db);
         Section1.SignIn(controller, "desk-north", "Reception");
 
         var result = await controller.Return(new ReturnViewModel { LoanId = loan.Id, ReturnStatus = ItemStatus.Available });
@@ -379,9 +379,9 @@ public class BranchIntegrationTests
         var borrower = await Section1.AddBorrowerAsync(db);
         var service = new TransferService(db);
         var requestId = (await service.RequestAsync(book.Id, river.Id, null, "admin")).Transfer!.Id;
-        await new LoansController(db).Borrow(new BorrowViewModel { LibraryCode = "B1", BorrowerId = borrower.Id });
+        await LoansControllerFactory.Create(db).Borrow(new BorrowViewModel { LibraryCode = "B1", BorrowerId = borrower.Id });
         await Section1.AddStaffAsync(db, "desk-north", north);
-        var controller = new LoansController(db);
+        var controller = LoansControllerFactory.Create(db);
         Section1.SignIn(controller, "desk-north", "Reception");
 
         await controller.Return(new ReturnViewModel { LoanId = (await db.Loans.SingleAsync()).Id, ReturnStatus = ItemStatus.Available });
@@ -401,7 +401,7 @@ public class BranchIntegrationTests
         var (central, north, _) = await Section1.SeedBranchesAsync(db);
         var (loan, book) = await AddOpenLoanAsync(db, central);
         await Section1.AddStaffAsync(db, "desk-north", north);
-        var controller = new LoansController(db);
+        var controller = LoansControllerFactory.Create(db);
         Section1.SignIn(controller, "desk-north", "Reception");
 
         await controller.Return(new ReturnViewModel { LoanId = loan.Id, ReturnStatus = ItemStatus.Damaged });
@@ -430,7 +430,7 @@ public class BranchIntegrationTests
             (await adminDb.Items.SingleAsync(i => i.Id == itemId)).Status = ItemStatus.Damaged;
             await adminDb.SaveChangesAsync();
         }
-        var controller = new LoansController(deskDb);
+        var controller = LoansControllerFactory.Create(deskDb);
         Section1.SignIn(controller, "nobody", "Admin");
 
         var result = await controller.Return(new ReturnViewModel { LoanId = loanId, ReturnStatus = ItemStatus.Available });

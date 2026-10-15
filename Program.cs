@@ -4,6 +4,7 @@ using LibraryManagementSystem.Services;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
+
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllersWithViews();
@@ -19,6 +20,9 @@ builder.Services
 builder.Services.AddScoped<ITransferService, TransferService>();
 builder.Services.AddScoped<IReportService, ReportService>();
 builder.Services.AddSingleton<IReportPdfService, ReportPdfService>();
+builder.Services.AddScoped<INotificationService, NotificationService>();
+builder.Services.AddScoped<IReservationService, ReservationService>();
+builder.Services.AddScoped<IDueDateReminderService, DueDateReminderService>();
 
 builder.Services.ConfigureApplicationCookie(options =>
 {

@@ -153,7 +153,7 @@ public class TransferServiceTests
         var id = (await service.RequestAsync(book.Id, north.Id, null, "admin")).Transfer!.Id;
 
         // The item is still on the shelf while only requested, so it can be borrowed.
-        await new LoansController(db).Borrow(new BorrowViewModel { LibraryCode = "B1", BorrowerId = borrower.Id });
+        await LoansControllerFactory.Create(db).Borrow(new BorrowViewModel { LibraryCode = "B1", BorrowerId = borrower.Id });
         var result = await service.DispatchAsync(id, "admin");
 
         Assert.False(result.Succeeded);
@@ -175,7 +175,7 @@ public class TransferServiceTests
         var id = (await service.RequestAsync(book.Id, north.Id, null, "admin")).Transfer!.Id;
         await service.DispatchAsync(id, "admin");
 
-        var controller = new LoansController(db);
+        var controller = LoansControllerFactory.Create(db);
         await controller.Borrow(new BorrowViewModel { LibraryCode = "B1", BorrowerId = borrower.Id });
 
         Assert.False(controller.ModelState.IsValid);
@@ -392,7 +392,7 @@ public class TransferServiceTests
         // The dispatching request reads the item as Available...
         _ = await dispatchDb.ItemTransfers.Include(t => t.Item).SingleAsync(t => t.Id == transferId);
         // ...then a borrow at the desk wins the race...
-        await new LoansController(deskDb).Borrow(new BorrowViewModel { LibraryCode = "B1", BorrowerId = borrowerId });
+        await LoansControllerFactory.Create(deskDb).Borrow(new BorrowViewModel { LibraryCode = "B1", BorrowerId = borrowerId });
         // ...so the dispatch must fail rather than overwrite Borrowed with InTransit.
         var result = await new TransferService(dispatchDb).DispatchAsync(transferId, "admin");
 

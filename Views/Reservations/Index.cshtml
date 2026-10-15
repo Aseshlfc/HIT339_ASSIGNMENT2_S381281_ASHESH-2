@@ -1,0 +1,57 @@
+﻿@using LibraryManagementSystem.Services
+@model IEnumerable<Reservation>
+@{
+    ViewData["Title"] = "Reservations";
+    var positions = (Dictionary<int, int>)ViewBag.QueuePositions;
+}
+<div class="page-heading">
+    <div><h1>Reservations</h1><p>Holds on borrowed or damaged items, in queue order. Ready holds are kept for @ReservationService.HoldDays days.</p></div>
+    <div class="button-row">
+        <form asp-action="ExpireOldHolds" method="post" class="inline-form">
+            <button class="btn btn-secondary" type="submit"><i class="bi bi-hourglass-split" aria-hidden="true"></i> Expire old holds</button>
+        </form>
+        <a class="btn" asp-action="Create"><i class="bi bi-bookmark-plus" aria-hidden="true"></i> Place Hold</a>
+    </div>
+</div>
+<div class="table-wrap">
+    <table>
+        <thead><tr><th>Item</th><th>Borrower</th><th>Item status</th><th>Hold status</th><th>Queue position</th><th>Placed</th><th>Actions</th></tr></thead>
+        <tbody>
+            @foreach (var r in Model)
+            {
+                <tr>
+                    <td>@r.Item.Name <small>(@r.Item.LibraryCode)</small></td>
+                    <td>@r.Borrower.FullName</td>
+                    <td>@r.Item.Status</td>
+                    <td><span class="status @(r.Status == ReservationStatus.Ready ? "status-available" : "")">@r.Status</span></td>
+                    <td>@(positions.TryGetValue(r.Id, out var position) ? $"#{position}" : "—")</td>
+                    <td>@r.CreatedAt.ToLocalTime().ToString("dd MMM yyyy HH:mm")</td>
+                    <td class="actions">
+                        @if (r.Status == ReservationStatus.Waiting)
+                        {
+                            <form asp-action="Cancel" asp-route-id="@r.Id" method="post" class="inline-form">
+                                <button type="submit" class="action-btn action-btn-muted"><i class="bi bi-x-circle" aria-hidden="true"></i> Cancel</button>
+                            </form>
+                        }
+                        else
+                        {
+                            <span class="help">—</span>
+                        }
+                    </td>
+                </tr>
+            }
+            @if (!Model.Any())
+            {
+                <tr>
+                    <td colspan="7">
+                        <div class="empty-state">
+                            <i class="bi bi-bookmark-x" aria-hidden="true"></i>
+                            <strong>No active holds</strong>
+                            Place a hold on a borrowed or damaged item to start a queue.
+                        </div>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>

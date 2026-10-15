@@ -13,7 +13,15 @@ namespace LibraryManagementSystem.Controllers;
 public class LoansController : Controller
 {
     private readonly LibraryContext _db;
-    public LoansController(LibraryContext db) => _db = db;
+    private readonly INotificationService _notifications;
+    private readonly IReservationService _reservations;
+
+    public LoansController(LibraryContext db, INotificationService notifications, IReservationService reservations)
+    {
+        _db = db;
+        _notifications = notifications;
+        _reservations = reservations;
+    }
 
     private const string NoDeskMessage = "Your account is not assigned to a branch, so you cannot lend or return items. Ask an Admin to assign your branch.";
 
@@ -47,7 +55,6 @@ public class LoansController : Controller
             TempData["Error"] = NoDeskMessage;
             return RedirectToAction(nameof(Index));
         }
-
         await LoadBorrowers();
         return View(new BorrowViewModel { LibraryCode = code ?? string.Empty });
     }
@@ -89,6 +96,17 @@ public class LoansController : Controller
         if (!borrowerExists)
             ModelState.AddModelError(nameof(model.BorrowerId), "Borrower was not found.");
 
+        // A Ready hold means the item is being kept for the first borrower in the queue.
+        Reservation? readyHold = null;
+        if (item != null && item.Status == ItemStatus.Available)
+        {
+            readyHold = await _db.Reservations
+                .FirstOrDefaultAsync(r => r.ItemId == item.Id && r.Status == ReservationStatus.Ready);
+            if (readyHold != null && readyHold.BorrowerId != model.BorrowerId)
+                ModelState.AddModelError(nameof(model.LibraryCode),
+                    "This item is being held for another borrower who reserved it.");
+        }
+
         if (!ModelState.IsValid)
         {
             await LoadBorrowers();
@@ -107,6 +125,7 @@ public class LoansController : Controller
 
         item.Status = ItemStatus.Borrowed;
         _db.Loans.Add(loan);
+        if (readyHold != null) readyHold.Status = ReservationStatus.Fulfilled;
 
         try
         {
@@ -122,7 +141,11 @@ public class LoansController : Controller
             return View(model);
         }
 
+        // Simulated notification: tell the borrower what they borrowed and when it is due.
+        await _notifications.SendAsync(model.BorrowerId, NotificationType.Borrowed,
+            $"You borrowed {item!.Name} ({item.LibraryCode}). It is due back on {loan.DueDate:dd MMM yyyy}.");
         return RedirectToAction(nameof(Index));
+
     }
 
     [HttpGet]
@@ -223,6 +246,14 @@ public class LoansController : Controller
             return RedirectToAction(nameof(Index));
         }
 
+        // Simulated notification: only sent when the return created a late fine.
+        if (loan.FineAmount > 0)
+        {
+            await _notifications.SendAsync(loan.BorrowerId, NotificationType.FineIssued,
+                $"A late fine of ${loan.FineAmount:0.00} was added for {loan.Item.Name}, which was due on {loan.DueDate:dd MMM yyyy}.");
+        }
+        // If the item is Available again, offer it to the first borrower waiting in the queue.
+        await _reservations.NotifyNextInQueueAsync(loan.Item);
         if (movedMessage != null) TempData["Success"] = movedMessage;
         return RedirectToAction(nameof(Index));
     }
