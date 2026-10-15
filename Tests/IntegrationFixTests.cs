@@ -579,7 +579,7 @@ public class IntegrationFixTests
     // ---------- Issue 5: kiosk card look-ups and checkouts are rate limited
 
     [Theory]
-    [InlineData(nameof(KioskController.Account))]
+    [InlineData(nameof(KioskController.OpenAccount))]
     [InlineData(nameof(KioskController.Checkout))]
     public void KioskPostActions_UseTheKioskRateLimitPolicy(string action)
     {

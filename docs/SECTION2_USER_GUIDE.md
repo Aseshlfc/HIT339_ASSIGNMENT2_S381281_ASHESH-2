@@ -18,7 +18,7 @@ No login is needed. Staff open the kiosk page for their branch, for example `/ki
 
    ![Welcome](section2-images/kiosk-02-welcome.png)
 
-3. **Check your account.** You see what you have borrowed and when it is due, any fines you owe, and your reservations.
+3. **Check your account.** You see what you have borrowed and when it is due, any fines you owe, and your reservations. Only the last two digits of your card number are shown (for example "Card ending 05").
 
    ![Account](section2-images/kiosk-04-account.png)
 
@@ -27,10 +27,10 @@ No login is needed. Staff open the kiosk page for their branch, for example `/ki
 
    ![Borrowed](section2-images/kiosk-05-borrow-success.png)
 
-6. **Sign out.** The welcome screen comes back with "You have signed out. Thank you for visiting." Your name, card number and account are no longer on screen, and the browser's Back button does not show your account again.
+6. **Sign out.** The welcome screen comes back with "You have signed out. Thank you for visiting." Your sign-in is closed on the library's system, not just hidden: pressing Back, refreshing, or resending the old form all lead back to the welcome screen, and nobody can reopen your account without your card number.
 7. **Leave the kiosk (optional).** Tap **Back to Main Site** at the bottom of the welcome screen to return to the library's main website, where you can search the catalogue. The button only appears once nobody is signed in.
 
-The kiosk signs you out by itself after 60 seconds without use, so the next person cannot see your account. It then shows the same signed-out screen.
+The kiosk signs you out by itself after 60 seconds without use, so the next person cannot see your account. It then shows the same signed-out screen. If the screen cannot sign you out (for example, the page stopped responding), the library's system still closes your sign-in after 3 minutes without use, and after 20 minutes in any case.
 
 ### Messages you might see
 | Message | What it means | What to do |
@@ -41,7 +41,8 @@ The kiosk signs you out by itself after 60 seconds without use, so the next pers
 | "...is held at Northside Branch, not Central Library." | The item belongs to another branch. | Ask staff about a transfer, or go to that branch. |
 | "...is being held for another patron who reserved it." | The item is waiting for someone who reserved it. | Ask staff about a hold for yourself. |
 | "...was just borrowed by someone else." | Someone borrowed it a moment before you. | Try another copy. |
-| "Your session ended. Please scan your library card again." | You were idle for too long. | Scan your card again. |
+| "Your session ended. Please scan your library card again." | You were idle for too long, or signed in for more than 20 minutes. | Scan your card again. |
+| "This screen has expired. Please scan your library card again." | The welcome screen was already used, or was left open for over an hour. This also appears if someone presses Back and resends an earlier sign-in. | Scan your card again on the fresh screen. |
 
 ![Card not recognised](section2-images/kiosk-03-card-not-recognised.png)
 ![Wrong branch](section2-images/kiosk-06-wrong-branch.png)
@@ -60,6 +61,22 @@ Fines are paid at the desk. The kiosk shows what you owe but cannot take payment
 Open **Borrowers** (Reception, Manager or Admin). Each patron has a **Card number** column, for example `P0005`. Patrons can then use that number at the kiosk.
 
 ![Card numbers](section2-images/staff-01-borrowers-card-numbers.png)
+
+### How kiosk sign-in is protected
+- **Sign-in:** after a card is accepted, the kiosk keeps the patron signed in through a short session held on the library's server. The browser holds only a random session number, in a cookie that page scripts cannot read and other websites cannot use. The card number is never stored in the page or the cookie.
+- **Ending a session:** **Finish and sign out**, the 60-second idle timer and opening the welcome screen all end the session on the server. The server also ends it after 3 minutes without use and 20 minutes in total.
+- **One-use welcome screen:** each welcome screen can sign in once. Pressing Back and resending an earlier sign-in is refused, even with a valid card number.
+- **Borrowing:** loans are always made to the signed-in patron at that kiosk's branch. A session started at one branch cannot be used at another.
+- **Rate limiting:** card look-ups and borrowing are still limited to 30 per minute per kiosk.
+- **Restarts:** sessions are kept in the server's memory, so restarting the application signs every kiosk out.
+
+**What is still not protected (no PIN yet):**
+- Anyone who knows or guesses a card number can sign in as that patron, see their loans, fines and reservations, and borrow on their card. Card numbers follow the borrower number (`P0001`, `P0002`, ...), so they are easy to guess.
+- Someone who watches the patron type their number can use it later.
+- Fixing this needs a PIN or card secret, which needs a database change and is a separate decision.
+- The account screen stays visible until the patron finishes or the 60-second timer runs out, so patrons should still tap **Finish and sign out**.
+
+**Settings:** the session times can be changed in `appsettings.json` under `Kiosk`: `SessionIdleMinutes` (default 3), `SessionMaxMinutes` (20) and `SignInFormMinutes` (60).
 
 ### Importing items from a CSV file (Admin only)
 Log in as `admin` and open **Import** in the menu.

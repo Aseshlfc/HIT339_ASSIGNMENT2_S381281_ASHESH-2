@@ -14,10 +14,10 @@
         _ => "bi-bookmark"
     };
 }
-<section class="kiosk-panel kiosk-account" data-idle-seconds="60" data-idle-url="@Url.Action("Welcome", new { branchCode = Model.Branch.Code, signedOut = true })">
+<section class="kiosk-panel kiosk-account" data-idle-seconds="60">
     <div class="kiosk-hello">
         <h1>Hello, @firstName</h1>
-        <span class="kiosk-card-tag"><i class="bi bi-credit-card-2-front" aria-hidden="true"></i> Card @account.CardNumber</span>
+        <span class="kiosk-card-tag"><i class="bi bi-credit-card-2-front" aria-hidden="true"></i> Card ending @(account.CardNumber[^2..])</span>
     </div>
 
     @if (Model.Message != null)
@@ -30,7 +30,6 @@
     <div class="kiosk-card">
         <h2><i class="bi bi-box-arrow-in-right" aria-hidden="true"></i> Borrow an item</h2>
         <form method="post" asp-action="Checkout" asp-route-branchCode="@Model.Branch.Code" class="kiosk-form">
-            <input type="hidden" name="CardNumber" value="@account.CardNumber" />
             <label for="LibraryCode" class="kiosk-label">Scan or type the library code on the item</label>
             <div class="kiosk-input-row">
                 <i class="bi bi-upc-scan" aria-hidden="true"></i>
@@ -134,9 +133,11 @@
     }
 
     <div class="kiosk-done">
-        <a class="kiosk-btn kiosk-btn-secondary" asp-action="Welcome" asp-route-branchCode="@Model.Branch.Code" asp-route-signedOut="true">
-            <i class="bi bi-box-arrow-right" aria-hidden="true"></i> Finish and sign out
-        </a>
+        <form method="post" asp-action="Finish" asp-route-branchCode="@Model.Branch.Code" id="kioskFinish">
+            <button type="submit" class="kiosk-btn kiosk-btn-secondary">
+                <i class="bi bi-box-arrow-right" aria-hidden="true"></i> Finish and sign out
+            </button>
+        </form>
         <span class="kiosk-idle" id="kioskIdle" aria-live="polite"></span>
     </div>
 </section>
@@ -144,12 +145,13 @@
 @section Scripts {
 <script>
     // Signs the patron out after a minute without touching the screen, so the
-    // next person never sees the previous person's account.
+    // next person never sees the previous person's account. Signing out goes through
+    // the same form as the Finish button, so the session also ends on the server.
     (function () {
         const panel = document.querySelector('[data-idle-seconds]');
         if (!panel) return;
         const limit = parseInt(panel.dataset.idleSeconds, 10);
-        const url = panel.dataset.idleUrl;
+        const finish = document.getElementById('kioskFinish');
         const label = document.getElementById('kioskIdle');
         let left = limit;
         function show() { label.textContent = left <= 15 ? 'Signing out in ' + left + ' seconds' : ''; }
@@ -159,12 +161,12 @@
         setInterval(function () {
             left -= 1;
             show();
-            if (left <= 0) window.location.replace(url);
+            if (left === 0) finish.submit();
         }, 1000);
-        // If the browser restores this page from its back/forward cache after
-        // sign-out, leave it straight away instead of showing the account again.
+        // If the browser restores this page from its back/forward cache, ask the
+        // server again: after sign-out that sends the browser to the welcome screen.
         window.addEventListener('pageshow', function (e) {
-            if (e.persisted) window.location.replace(url);
+            if (e.persisted) window.location.reload();
         });
     })();
 </script>

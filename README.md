@@ -92,6 +92,8 @@ Settings live in `appsettings.json` and can be overridden with environment varia
 | `PublicApi:RequestsPerMinute` | API requests allowed per client address per minute | 60 |
 | `PublicApi:DefaultPageSize`, `PublicApi:MaxPageSize` | API paging | 20, 100 |
 | `Kiosk:RequestsPerMinute` | Kiosk card look-ups and checkouts allowed per client address per minute | 30 |
+| `Kiosk:SessionIdleMinutes`, `Kiosk:SessionMaxMinutes` | A kiosk session ends on the server after this long without a request, or this long in total | 3, 20 |
+| `Kiosk:SignInFormMinutes` | How long one kiosk welcome screen can be used to sign in | 60 |
 
 The API key in `appsettings.json` is a placeholder for classroom demonstration. Replace it before any real use, for example with the environment variable `PublicApi__ApiKeys__0`. Do not commit real keys.
 
@@ -209,6 +211,7 @@ Author: Susan Acharya. Full notes: [`docs/SECTION2_NOTES.md`](docs/SECTION2_NOTE
 - **Where:** the **Kiosk** link in the menu, or `/kiosk/CEN` (Central), `/kiosk/NTH`, `/kiosk/RIV`.
 - **How:** type or scan a library card number (the **Borrowers** page shows each one, for example `P0005`). The kiosk shows loans, fines and reservations. Scan or type an item code (for example `B003`) and tap **Borrow**.
 - **Rules:** same as the desk: only Available items held at that branch, items kept for another patron's hold are refused, loans are due in 14 days, and a Borrowed notification is sent. The kiosk signs out after 60 seconds idle.
+- **Sessions:** a recognised card starts a short server-side session (`Services/KioskSessionStore.cs`). The browser only holds a random id in an HttpOnly, SameSite=Strict cookie limited to `/kiosk`. Signing out, the idle timer and the welcome screen end the session on the server. Each welcome screen carries a one-time sign-in token, so a resubmitted or replayed sign-in form is refused.
 - **Limits:** card look-ups and checkouts are limited per client address (see [Configuration](#configuration)). There is no PIN: see [Known limitations](#known-limitations).
 
 ### REST API (read-only, API key)
@@ -233,7 +236,7 @@ Files are limited to 1 MB and 1000 rows, UTF-8. Import adds items only; it does 
 [`docs/SECTION2_REQUIREMENTS.md`](docs/SECTION2_REQUIREMENTS.md), [`docs/SECTION2_USER_GUIDE.md`](docs/SECTION2_USER_GUIDE.md), [`docs/SECTION2_API.md`](docs/SECTION2_API.md), [`docs/SECTION2_USER_JOURNEYS.md`](docs/SECTION2_USER_JOURNEYS.md), [`docs/SECTION2_NOTES.md`](docs/SECTION2_NOTES.md). Screenshots are in `docs/section2-images`.
 
 ### Tests
-Section 2 tests are in `Tests/KioskServiceTests.cs`, `Tests/KioskControllerTests.cs`, `Tests/CatalogueApiTests.cs` and `Tests/ItemImportServiceTests.cs`.
+Section 2 tests are in `Tests/KioskServiceTests.cs`, `Tests/KioskControllerTests.cs`, `Tests/KioskSessionTests.cs`, `Tests/CatalogueApiTests.cs` and `Tests/ItemImportServiceTests.cs`.
 
 ## Section 3: Reservations and notifications
 
@@ -283,6 +286,8 @@ Changes made when the three sections were combined. Regression tests are in `Tes
 | Ready holds | Can be cancelled. If the item stops being available, the hold returns to the front of the queue and gets a new collection period when the item is available again |
 | Library codes | The desk, the hold form and the kiosk all accept a code typed in lower case or with spaces (`Data/ItemLookupExtensions.cs`) |
 | Kiosk | Card look-ups and checkouts are rate limited |
+| Kiosk sign-out | After signing out, the welcome screen says so and offers **Back to Main Site**; that link never appears while a patron is signed in |
+| Kiosk sessions | Sign-in now creates a server-side session (Post/Redirect/Get). Checkout takes the patron from the session, not from a hidden card-number field. Finish, the idle timer, the welcome screen and server-side expiry end the session. Sign-in forms work once, so Back, refresh, resubmission and replaying the old sign-in post cannot reopen an account. Kiosk pages are sent `no-store`, and the account page shows only the last two digits of the card. Tests: `Tests/KioskSessionTests.cs` |
 | REST API | Numeric or unknown `status` values return 400 |
 | CSV import | A file over 1 MB is answered with the importer's own message |
 | PDF export | Names in non-Latin scripts no longer fail the export and are drawn with installed fonts |
@@ -323,7 +328,8 @@ Most tests use the EF Core InMemory provider. Tests for concurrency, unique inde
 
 - The project targets .NET 8; the assignment requires .NET 10. The upgrade has not been done or tested.
 - Installation has not yet been tested on the designated virtual machine.
-- **Kiosk sign-in uses the card number only.** The number is derived from the borrower Id, so it can be guessed. Rate limiting slows guessing, but anyone who knows a number can see that patron's loans and fines and borrow on their card. A PIN or card secret needs a database migration.
+- **Kiosk sign-in uses the card number only.** The number is derived from the borrower Id, so it can be guessed. Rate limiting slows guessing, but anyone who knows a number can see that patron's loans and fines and borrow on their card. A PIN or card secret needs a database migration. Server-side sessions stop the *next* person reopening an account after sign-out, but not someone who knows the card number.
+- Kiosk sessions are held in memory: they suit one server instance, and a restart signs every kiosk out.
 - Fines cannot be paid, items cannot be returned and holds cannot be placed at the kiosk.
 - API keys live in configuration; there is no key management page. The rate limiters are in memory, which suits one server instance.
 - CSV import adds items only (no update) and accepts UTF-8 only.

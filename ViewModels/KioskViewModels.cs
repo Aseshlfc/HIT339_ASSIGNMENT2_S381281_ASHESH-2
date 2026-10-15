@@ -7,12 +7,17 @@ namespace LibraryManagementSystem.ViewModels;
 public class KioskCardForm
 {
     public string? CardNumber { get; set; }
+
+    /// <summary>One-time token from the welcome screen; a replayed form is refused.</summary>
+    public string? SignInToken { get; set; }
 }
 
-/// <summary>Posted from the account screen to borrow one item.</summary>
+/// <summary>
+/// Posted from the account screen to borrow one item. There is deliberately no card
+/// number: the patron always comes from the server-side kiosk session.
+/// </summary>
 public class KioskCheckoutForm
 {
-    public string? CardNumber { get; set; }
     public string? LibraryCode { get; set; }
 }
 
@@ -21,6 +26,7 @@ public class KioskWelcomeViewModel
     public required Branch Branch { get; init; }
     public string? CardNumber { get; init; }
     public string? Error { get; init; }
+    public required string SignInToken { get; init; }
 
     /// <summary>True when the patron has just finished, or the idle timer signed them out.</summary>
     public bool SignedOut { get; init; }

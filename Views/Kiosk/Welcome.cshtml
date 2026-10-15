@@ -18,7 +18,8 @@
         <div class="kiosk-message kiosk-error" role="alert"><i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i> @Model.Error</div>
     }
 
-    <form method="post" asp-action="Account" asp-route-branchCode="@Model.Branch.Code" class="kiosk-form">
+    <form method="post" asp-action="OpenAccount" asp-route-branchCode="@Model.Branch.Code" class="kiosk-form" id="kioskSignIn">
+        <input type="hidden" name="SignInToken" value="@Model.SignInToken" />
         <label for="CardNumber" class="kiosk-label">Library card number</label>
         <div class="kiosk-input-row">
             <i class="bi bi-upc-scan" aria-hidden="true"></i>
@@ -37,3 +38,19 @@
         </a>
     </nav>
 </section>
+
+@section Scripts {
+<script>
+    // Each welcome screen can sign in once. If the browser brings back an old copy
+    // (Back button), or this screen has been waiting a long time, load a fresh one.
+    (function () {
+        window.addEventListener('pageshow', function (e) {
+            if (e.persisted) window.location.reload();
+        });
+        const card = document.getElementById('CardNumber');
+        setInterval(function () {
+            if (card.value === '') window.location.reload();
+        }, 30 * 60 * 1000);
+    })();
+</script>
+}
