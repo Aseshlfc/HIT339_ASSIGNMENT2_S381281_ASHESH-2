@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - Simple Library Kiosk</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.11.3/font/bootstrap-icons.min.css" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/kiosk.css" asp-append-version="true" />
+</head>
+<body class="kiosk">
+<header class="kiosk-bar">
+    <span class="kiosk-brand"><i class="bi bi-journal-bookmark-fill" aria-hidden="true"></i> Simple Library</span>
+    @if (ViewData["KioskBranchName"] is string branchName)
+    {
+        <span class="kiosk-branch"><i class="bi bi-geo-alt-fill" aria-hidden="true"></i> @branchName</span>
+    }
+</header>
+<main class="kiosk-main">
+    @RenderBody()
+</main>
+<footer class="kiosk-foot">Self-service kiosk &middot; Need help? Please ask library staff.</footer>
+@await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

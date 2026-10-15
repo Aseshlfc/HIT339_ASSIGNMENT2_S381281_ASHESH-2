@@ -1,0 +1,8 @@
+Type,Name,Description,LibraryCode,BranchCode,Status,Author,Genre,PublicationYear,Artist,ReleaseYear,ToyType,MinimumAge,Manufacturer
+Book,The Lord of the Rings,An epic quest to destroy a powerful ring.,B101,CEN,Available,J. R. R. Tolkien,Fantasy,1954,,,,,
+Book,Matilda,A gifted girl uses her mind to outwit cruel adults.,B102,NTH,Available,Roald Dahl,Children's,1988,,,,,
+Book,Brave New World,A future society built on comfort and control.,B103,RIV,Damaged,Aldous Huxley,Dystopian,1932,,,,,
+Music,Kind of Blue,A landmark modal jazz album.,M101,CEN,Available,,Jazz,,Miles Davis,1959,,,
+Music,Nevermind,The album that brought grunge to the mainstream.,M102,NTH,Available,,Rock,,Nirvana,1991,,,
+Toy,Wooden Train Set,"Track, trains and bridges, 40 pieces.",T101,CEN,Available,,,,,,Construction,3,Library Toy Collection
+Toy,Memory Match Game,A card game that trains concentration.,T102,,Available,,,,,,Board Game,4,Library Toy Collection

@@ -20,9 +20,11 @@
         </a>
         <nav>
             <a class="@NavClass("Home")" asp-controller="Home" asp-action="Index">Public Search</a>
+            <a class="@NavClass("Kiosk")" asp-controller="Kiosk" asp-action="Index">Kiosk</a>
             @if (User.IsInRole("Admin"))
             {
                 <a class="@NavClass("Items")" asp-controller="Items" asp-action="Index">Items</a>
+                <a class="@NavClass("Import")" asp-controller="Import" asp-action="Index">Import</a>
                 <a class="@NavClass("Staff")" asp-controller="Staff" asp-action="Index">Staff</a>
             }
             @if (User.IsInRole("Reception"))

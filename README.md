@@ -138,3 +138,34 @@ dotnet test Tests/LibraryManagementSystem.Tests.csproj
 ```
 
 Section 3 tests are in `Tests/NotificationAndQueueTests.cs`, `Tests/DueDateReminderServiceTests.cs` and `Tests/ReservationExpiryTests.cs`. Screenshots of the working features are in `docs/screenshots`, and the build log is in `docs/SECTION3_NOTES.md`.
+
+## Section 2: Public Kiosk, REST API and Data Import
+
+Author: Susan Acharya. Full notes: `docs/SECTION2_NOTES.md`. No database migration is needed for this section.
+
+### Kiosk (no login)
+- **Where:** the **Kiosk** link in the menu, or `/kiosk/CEN` (Central), `/kiosk/NTH`, `/kiosk/RIV`.
+- **How:** type or scan a library card number (the **Borrowers** page shows each one, for example `P0005` is Priya Patel). The kiosk shows loans, fines and reservations. Scan or type an item code (for example `B003`) and tap **Borrow**.
+- **Rules:** same as the desk: only Available items held at that branch, items kept for another patron's hold are refused, loans are due in 14 days, and a Borrowed notification is sent. The kiosk signs out after 60 seconds idle.
+
+### REST API (read-only, API key)
+- **Endpoints:** `GET /api/v1/items`, `/api/v1/items/{libraryCode}`, `/api/v1/categories`, `/api/v1/status`.
+- **Try it:**
+
+```bash
+curl -H "X-Api-Key: demo-public-api-key-change-me" "http://localhost:5190/api/v1/items?type=toy&availableOnly=true"
+```
+
+- Needs the `X-Api-Key` header (change keys in `appsettings.json`), allows 60 requests per minute per client and GET only. Full reference: `docs/SECTION2_API.md`.
+
+### CSV import (Admin)
+1. Log in as `admin` / `Admin123!` and open **Import**.
+2. Click **Download template**, or use `docs/samples/items-import-valid.csv`.
+3. Upload with **Check the file only** ticked to see a line-by-line report without saving.
+4. Upload again without it ticked to import. Try `docs/samples/items-import-with-errors.csv` to see the validation messages.
+
+### Documents
+`docs/SECTION2_REQUIREMENTS.md`, `docs/SECTION2_USER_GUIDE.md`, `docs/SECTION2_API.md`, `docs/SECTION2_USER_JOURNEYS.md`, `docs/SECTION2_NOTES.md`.
+
+### Tests
+Section 2 tests are in `Tests/KioskServiceTests.cs`, `Tests/KioskControllerTests.cs`, `Tests/CatalogueApiTests.cs` and `Tests/ItemImportServiceTests.cs`. Run `dotnet test Tests/LibraryManagementSystem.Tests.csproj`.
