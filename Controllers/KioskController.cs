@@ -41,17 +41,21 @@ public class KioskController : Controller
         return View(branches);
     }
 
+    // signedOut is set by "Finish and sign out" and the idle timer. The kiosk keeps
+    // no server-side patron state, so signing out is simply leaving the account page.
     [HttpGet("{branchCode}")]
-    public async Task<IActionResult> Welcome(string branchCode)
+    public async Task<IActionResult> Welcome(string branchCode, bool signedOut = false)
     {
         var branch = await FindBranchAsync(branchCode);
         if (branch == null) return BranchNotFound();
-        return View(new KioskWelcomeViewModel { Branch = branch });
+        return View(new KioskWelcomeViewModel { Branch = branch, SignedOut = signedOut });
     }
 
+    // The account screen is never stored, so Back after signing out cannot redisplay it.
     [HttpPost("{branchCode}/account")]
     [ValidateAntiForgeryToken]
     [EnableRateLimiting(KioskOptions.PolicyName)]
+    [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
     public async Task<IActionResult> Account(string branchCode, KioskCardForm form)
     {
         var branch = await FindBranchAsync(branchCode);
@@ -80,6 +84,7 @@ public class KioskController : Controller
     [HttpPost("{branchCode}/checkout")]
     [ValidateAntiForgeryToken]
     [EnableRateLimiting(KioskOptions.PolicyName)]
+    [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
     public async Task<IActionResult> Checkout(string branchCode, KioskCheckoutForm form)
     {
         var branch = await FindBranchAsync(branchCode);

@@ -106,9 +106,13 @@ body.kiosk { font-size: 20px; min-height: 100vh; display: flex; flex-direction: 
 .kiosk-done { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; margin-top: 8px; }
 .kiosk-idle { color: var(--danger); font-weight: 700; }
 
+.kiosk-exit { display: flex; justify-content: center; margin-top: 28px; padding-top: 22px; border-top: 1px solid var(--border); }
+.kiosk-exit .kiosk-btn { min-height: 64px; font-size: 1.25rem; }
+
 @media (max-width: 560px) {
   body.kiosk { font-size: 18px; }
   .kiosk-panel h1 { font-size: 1.9rem; }
   .kiosk-list li { flex-wrap: wrap; }
   .kiosk-list-side { justify-items: start; text-align: left; }
+  .kiosk-exit .kiosk-btn { width: 100%; padding: 0 20px; }
 }

@@ -23,11 +23,14 @@ No login is needed. Staff open the kiosk page for their branch, for example `/ki
    ![Account](section2-images/kiosk-04-account.png)
 
 4. **Borrow.** Scan or type the library code printed on the item (for example `B003`) and tap **Borrow**.
-5. **Read the confirmation** showing the due date (14 days from today), then tap **Finish**.
+5. **Read the confirmation** showing the due date (14 days from today). Borrow more items, or tap **Finish and sign out**.
 
    ![Borrowed](section2-images/kiosk-05-borrow-success.png)
 
-The kiosk signs you out by itself after 60 seconds without use, so the next person cannot see your account.
+6. **Sign out.** The welcome screen comes back with "You have signed out. Thank you for visiting." Your name, card number and account are no longer on screen, and the browser's Back button does not show your account again.
+7. **Leave the kiosk (optional).** Tap **Back to Main Site** at the bottom of the welcome screen to return to the library's main website, where you can search the catalogue. The button only appears once nobody is signed in.
+
+The kiosk signs you out by itself after 60 seconds without use, so the next person cannot see your account. It then shows the same signed-out screen.
 
 ### Messages you might see
 | Message | What it means | What to do |

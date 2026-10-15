@@ -14,7 +14,7 @@
         _ => "bi-bookmark"
     };
 }
-<section class="kiosk-panel kiosk-account" data-idle-seconds="60" data-idle-url="@Url.Action("Welcome", new { branchCode = Model.Branch.Code })">
+<section class="kiosk-panel kiosk-account" data-idle-seconds="60" data-idle-url="@Url.Action("Welcome", new { branchCode = Model.Branch.Code, signedOut = true })">
     <div class="kiosk-hello">
         <h1>Hello, @firstName</h1>
         <span class="kiosk-card-tag"><i class="bi bi-credit-card-2-front" aria-hidden="true"></i> Card @account.CardNumber</span>
@@ -134,7 +134,7 @@
     }
 
     <div class="kiosk-done">
-        <a class="kiosk-btn kiosk-btn-secondary" asp-action="Welcome" asp-route-branchCode="@Model.Branch.Code">
+        <a class="kiosk-btn kiosk-btn-secondary" asp-action="Welcome" asp-route-branchCode="@Model.Branch.Code" asp-route-signedOut="true">
             <i class="bi bi-box-arrow-right" aria-hidden="true"></i> Finish and sign out
         </a>
         <span class="kiosk-idle" id="kioskIdle" aria-live="polite"></span>
@@ -159,8 +159,13 @@
         setInterval(function () {
             left -= 1;
             show();
-            if (left <= 0) window.location.href = url;
+            if (left <= 0) window.location.replace(url);
         }, 1000);
+        // If the browser restores this page from its back/forward cache after
+        // sign-out, leave it straight away instead of showing the account again.
+        window.addEventListener('pageshow', function (e) {
+            if (e.persisted) window.location.replace(url);
+        });
     })();
 </script>
 }

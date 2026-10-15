@@ -8,6 +8,11 @@
     <h1>Welcome</h1>
     <p class="kiosk-lead">Scan your library card, or type your card number, to borrow items and see your account.</p>
 
+    @if (Model.SignedOut)
+    {
+        <div class="kiosk-message kiosk-success" role="status"><i class="bi bi-check-circle-fill" aria-hidden="true"></i> You have signed out. Thank you for visiting.</div>
+    }
+
     @if (Model.Error != null)
     {
         <div class="kiosk-message kiosk-error" role="alert"><i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i> @Model.Error</div>
@@ -24,4 +29,11 @@
     </form>
 
     <p class="kiosk-hint">A barcode scanner types the number for you and presses Enter automatically.</p>
+
+    @* Only on this screen, where no patron is signed in, so leaving never carries an account with it. *@
+    <nav class="kiosk-exit" aria-label="Leave the kiosk">
+        <a class="kiosk-btn kiosk-btn-secondary" href="@Url.Action("Index", "Home")">
+            <i class="bi bi-house-door-fill" aria-hidden="true"></i> Back to Main Site
+        </a>
+    </nav>
 </section>

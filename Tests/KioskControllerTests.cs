@@ -155,6 +155,67 @@ public class KioskControllerTests
         }
         await Task.CompletedTask;
     }
+
+    // Regression for Windows testing feedback: after signing out there was no way back to the main site.
+    [Fact]
+    public async Task Welcome_AfterSignOut_ShowsTheSignedOutScreenWithNoPatronDetails()
+    {
+        using var testDb = new SqliteTestDb();
+        using var db = testDb.Open();
+
+        var view = Assert.IsType<ViewResult>(await Create(db).Welcome("CEN", signedOut: true));
+
+        var model = Assert.IsType<KioskWelcomeViewModel>(view.Model);
+        Assert.True(model.SignedOut);
+        Assert.Null(model.CardNumber);
+        Assert.Null(model.Error);
+
+        var normal = Assert.IsType<KioskWelcomeViewModel>(
+            Assert.IsType<ViewResult>(await Create(db).Welcome("CEN")).Model);
+        Assert.False(normal.SignedOut);
+    }
+
+    [Fact]
+    public async Task SignOutLinks_GoToTheSignedOutScreen_WhichOffersTheWayBackToTheMainSite()
+    {
+        var welcome = await File.ReadAllTextAsync(ViewPath("Welcome.cshtml"));
+        var account = await File.ReadAllTextAsync(ViewPath("Account.cshtml"));
+
+        Assert.Contains("Back to Main Site", welcome);
+        Assert.Contains("Url.Action(\"Index\", \"Home\")", welcome);
+
+        // Both the Finish button and the idle timer sign out through the signed-out screen.
+        Assert.Contains("asp-route-signedOut=\"true\"", account);
+        Assert.Contains("signedOut = true", account);
+
+        // The way out is only offered once nobody is signed in.
+        Assert.DoesNotContain("Back to Main Site", account);
+    }
+
+    [Fact]
+    public async Task AccountScreens_AreNeverStoredByTheBrowser()
+    {
+        foreach (var name in new[] { nameof(KioskController.Account), nameof(KioskController.Checkout) })
+        {
+            var cache = typeof(KioskController).GetMethod(name)!
+                .GetCustomAttributes(typeof(ResponseCacheAttribute), false)
+                .Cast<ResponseCacheAttribute>()
+                .SingleOrDefault();
+            Assert.NotNull(cache);
+            Assert.True(cache!.NoStore);
+            Assert.Equal(ResponseCacheLocation.None, cache.Location);
+        }
+        await Task.CompletedTask;
+    }
+
+    private static string ViewPath(string file)
+    {
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (dir != null && !File.Exists(Path.Combine(dir.FullName, "LibraryManagementSystem.csproj")))
+            dir = dir.Parent;
+        Assert.NotNull(dir);
+        return Path.Combine(dir!.FullName, "Views", "Kiosk", file);
+    }
 }
 
 public class ImportControllerTests

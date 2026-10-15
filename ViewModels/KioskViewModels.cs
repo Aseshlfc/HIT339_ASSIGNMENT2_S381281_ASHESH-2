@@ -21,6 +21,9 @@ public class KioskWelcomeViewModel
     public required Branch Branch { get; init; }
     public string? CardNumber { get; init; }
     public string? Error { get; init; }
+
+    /// <summary>True when the patron has just finished, or the idle timer signed them out.</summary>
+    public bool SignedOut { get; init; }
 }
 
 public class KioskAccountViewModel
