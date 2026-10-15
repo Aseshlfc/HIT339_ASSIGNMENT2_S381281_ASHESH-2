@@ -28,7 +28,7 @@ You need your library card number and a 6-digit kiosk PIN. Library staff set up 
    ![Borrowed](section2-images/kiosk-05-borrow-success.png)
 
 6. **Sign out.** The welcome screen comes back with "You have signed out. Thank you for visiting." Your sign-in is closed on the library's system, not just hidden: pressing Back, refreshing, or resending the old form all lead back to the welcome screen, and nobody can reopen your account without your card number.
-7. **Leave the kiosk (optional).** Tap **Back to Main Site** at the bottom of the welcome screen to return to the library's main website, where you can search the catalogue. The button only appears once nobody is signed in.
+7. **Leave the kiosk (optional).** Tap **← Back to Main Site** to return to the library's main website, where you can search the catalogue. It is at the bottom of the branch choice, welcome and "branch not found" screens. It never appears while a patron is signed in, so you always leave through **Finish and sign out**.
 
 The kiosk signs you out by itself after 60 seconds without use, so the next person cannot see your account. It then shows the same signed-out screen. If the screen cannot sign you out (for example, the page stopped responding), the library's system still closes your sign-in after 3 minutes without use, and after 20 minutes in any case.
 

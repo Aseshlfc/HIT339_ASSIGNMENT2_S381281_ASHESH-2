@@ -196,9 +196,10 @@ public class KioskControllerTests
     {
         var welcome = await File.ReadAllTextAsync(ViewPath("Welcome.cshtml"));
         var account = await File.ReadAllTextAsync(ViewPath("Account.cshtml"));
+        var exitLink = await File.ReadAllTextAsync(ViewPath("_BackToMainSite.cshtml"));
 
-        Assert.Contains("Back to Main Site", welcome);
-        Assert.Contains("Url.Action(\"Index\", \"Home\")", welcome);
+        Assert.Contains("Back to Main Site", exitLink);
+        Assert.Contains("Url.Action(\"Index\", \"Home\")", exitLink);
         Assert.Contains("name=\"SignInToken\"", welcome);
 
         // Finish and the idle timer both post the sign-out form, so the session ends on the server.
@@ -208,7 +209,43 @@ public class KioskControllerTests
         // The way out is only offered once nobody is signed in, and the card number
         // is never sent back from the account page.
         Assert.DoesNotContain("Back to Main Site", account);
+        Assert.DoesNotContain("_BackToMainSite", account);
         Assert.DoesNotContain("name=\"CardNumber\"", account);
+    }
+
+    // Regression: the branch-choice screen had no way back to the main site.
+    [Theory]
+    [InlineData("Index.cshtml")]          // choose a branch
+    [InlineData("Welcome.cshtml")]        // before sign-in and after sign-out
+    [InlineData("BranchNotFound.cshtml")]
+    public async Task EveryPublicKioskScreen_OffersTheWayBackToTheMainSite(string view)
+    {
+        var markup = await File.ReadAllTextAsync(ViewPath(view));
+
+        Assert.Contains("<partial name=\"_BackToMainSite\" />", markup);
+    }
+
+    // Regression: on phones the staff menu's <nav> styles (right padding, fade-out mask)
+    // also hit the kiosk's exit landmark, squeezing and fading the button.
+    [Fact]
+    public async Task TheExitLandmark_DoesNotInheritTheStaffMenusPhoneStyles()
+    {
+        var dir = Path.GetDirectoryName(Path.GetDirectoryName(Path.GetDirectoryName(ViewPath("Index.cshtml"))))!;
+        var css = await File.ReadAllTextAsync(Path.Combine(dir, "wwwroot", "css", "kiosk.css"));
+
+        var reset = System.Text.RegularExpressions.Regex.Match(css, @"\.kiosk-exit \{ flex: none;[^}]*\}").Value;
+        Assert.Contains("padding-right: 0", reset);
+        Assert.Contains("mask-image: none", reset);
+        Assert.Contains("overflow: visible", reset);
+    }
+
+    [Fact]
+    public async Task TheBackToMainSiteLink_IsALabelledLandmarkWithADecorativeIcon()
+    {
+        var exitLink = await File.ReadAllTextAsync(ViewPath("_BackToMainSite.cshtml"));
+
+        Assert.Contains("<nav class=\"kiosk-exit\" aria-label=\"Leave the kiosk\">", exitLink);
+        Assert.Contains("<i class=\"bi bi-arrow-left\" aria-hidden=\"true\"></i> Back to Main Site", exitLink);
     }
 
     [Fact]

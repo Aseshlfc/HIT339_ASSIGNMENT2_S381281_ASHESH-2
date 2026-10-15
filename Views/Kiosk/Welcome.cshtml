@@ -39,12 +39,7 @@
     </form>
 
 
-    @* Only on this screen, where no patron is signed in, so leaving never carries an account with it. *@
-    <nav class="kiosk-exit" aria-label="Leave the kiosk">
-        <a class="kiosk-btn kiosk-btn-secondary" href="@Url.Action("Index", "Home")">
-            <i class="bi bi-house-door-fill" aria-hidden="true"></i> Back to Main Site
-        </a>
-    </nav>
+    <partial name="_BackToMainSite" />
 </section>
 
 @section Scripts {

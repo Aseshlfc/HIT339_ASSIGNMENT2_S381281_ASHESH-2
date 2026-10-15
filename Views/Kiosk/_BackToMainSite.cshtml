@@ -1,0 +1,8 @@
+@* The way out of the kiosk to the public website. Only for screens where nobody is
+   signed in (branch choice, welcome, branch not found); never the account screen, so a
+   patron always leaves through "Finish and sign out". *@
+<nav class="kiosk-exit" aria-label="Leave the kiosk">
+    <a class="kiosk-btn kiosk-btn-secondary" href="@Url.Action("Index", "Home")">
+        <i class="bi bi-arrow-left" aria-hidden="true"></i> Back to Main Site
+    </a>
+</nav>
