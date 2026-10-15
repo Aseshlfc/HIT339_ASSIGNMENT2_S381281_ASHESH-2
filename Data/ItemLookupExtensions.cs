@@ -17,7 +17,7 @@ public static class ItemLookupExtensions
         if (string.IsNullOrEmpty(code)) return null;
 
         var upper = code.ToUpperInvariant();
-        var matches = await db.Items.Where(i => i.LibraryCode.ToUpper() == upper).Take(2).ToListAsync();
+        var matches = await db.Items.Where(i => i.LibraryCode.ToUpper() == upper).OrderBy(i => i.Id).Take(2).ToListAsync();
         return matches.FirstOrDefault(i => i.LibraryCode == code) ?? (matches.Count == 1 ? matches[0] : null);
     }
 }

@@ -2,7 +2,7 @@
 
 HIT339 group project. An ASP.NET Core MVC library management system, extended from a single-location Assignment 2 application into a multi-branch system with a self-service kiosk, a public REST API, bulk import, reservations and notifications.
 
-> **Status.** This README describes the combined application: the Assignment 2 baseline plus Section 1 (multi-branch inventory, transfers, manager analytics), Section 2 (kiosk, REST API, CSV import) and Section 3 (reservations, waitlist, notifications), with the integration fixes listed under [Integration notes](#integration-notes). The project targets **.NET 8**; the assignment requires .NET 10 and the upgrade is outstanding.
+> **Status.** This README describes the combined application: the Assignment 2 baseline plus Section 1 (multi-branch inventory, transfers, manager analytics), Section 2 (kiosk, REST API, CSV import) and Section 3 (reservations, waitlist, notifications), with the integration fixes listed under [Integration notes](#integration-notes). The project targets **.NET 10** (`net10.0`); it was upgraded from .NET 8 during integration.
 
 ## Contents
 
@@ -28,8 +28,8 @@ HIT339 group project. An ASP.NET Core MVC library management system, extended fr
 
 | Layer | Technology |
 |---|---|
-| Web framework | ASP.NET Core MVC, .NET 8 (`net8.0`) |
-| Data access | Entity Framework Core 8.0.11 |
+| Web framework | ASP.NET Core MVC, .NET 10 (`net10.0`) |
+| Data access | Entity Framework Core 10.0.13 |
 | Database | SQLite (`library.db`) |
 | Authentication | ASP.NET Core Identity, cookie sign-in, role-based authorisation |
 | Public API | ASP.NET Core controllers, API key header, built-in rate limiter |
@@ -41,10 +41,10 @@ No NuGet packages were added for Sections 2 and 3: the CSV reader and the rate l
 
 ## Development requirements
 
-- .NET 8 SDK
+- .NET 10 SDK (10.0.100 or later). `global.json` asks for it, so an older SDK stops with a clear message instead of a confusing build error. Check with `dotnet --list-sdks`.
 - Git
 - Windows or macOS
-- Optional: Visual Studio 2022 or Visual Studio Code; `dotnet-ef` for working with migrations
+- Optional: Visual Studio 2026, or Visual Studio Code with the C# Dev Kit (Visual Studio 2022 cannot target .NET 10); `dotnet-ef` 10.x for working with migrations
 
 ## Quick start
 
@@ -56,6 +56,26 @@ dotnet run
 ```
 
 Open the address printed in the terminal (the included launch profile uses **http://localhost:5190**). The database is migrated and seeded automatically on start-up.
+
+### Windows (including the designated VM)
+
+Run these in PowerShell.
+
+1. **Install the .NET 10 SDK.** Run `winget install Microsoft.DotNet.SDK.10`, or use the installer from dotnet.microsoft.com. Open a **new** PowerShell window, then check that `dotnet --list-sdks` lists a `10.0.x` SDK. Any 10.0 SDK from 10.0.100 up works (`global.json`).
+2. **Get the code and build it:**
+   ```powershell
+   git clone https://github.com/Aseshlfc/HIT339_ASSIGNMENT2_S381281_ASHESH-2.git
+   cd HIT339_ASSIGNMENT2_S381281_ASHESH-2
+   dotnet restore
+   dotnet build
+   ```
+3. **Run the automated tests:** `dotnet test Tests\LibraryManagementSystem.Tests.csproj`. Every test should pass. The project path is required.
+4. **Choose a database (optional).** To test without touching `library.db`, point the app at a new file first: `$env:ConnectionStrings__DefaultConnection="Data Source=$PWD\vm-test.db"`. Migrations run automatically at start-up. To apply them by hand instead, see [Database, migrations and seeding](#database-migrations-and-seeding).
+5. **Start the site:** run `dotnet run` and open **http://localhost:5190**.
+
+If the build says the SDK in `global.json` was not found, the .NET 10 SDK is missing, or the window was opened before it was installed.
+
+What to check by hand on Windows is listed in [`docs/WINDOWS_VM_CHECKLIST.md`](docs/WINDOWS_VM_CHECKLIST.md).
 
 ## Repository structure
 
@@ -102,9 +122,11 @@ The API key in `appsettings.json` is a placeholder for classroom demonstration. 
 Migrations run automatically at start-up. To apply them by hand:
 
 ```bash
-dotnet tool install --global dotnet-ef
+dotnet tool install --global dotnet-ef --version 10.0.13
 dotnet ef database update
 ```
+
+To check that the code and the migrations agree, run `dotnet ef migrations has-pending-model-changes`; it should report no changes. With the .NET 10 SDK, `dnx dotnet-ef@10.0.13 -- database update` runs the tool without installing it.
 
 | Migration | Section | Adds |
 |---|---|---|
@@ -286,9 +308,10 @@ Changes made when the three sections were combined. Regression tests are in `Tes
 | Borrowing | The desk and the kiosk share one hold rule (`IReservationService.CheckBorrowAsync`): an item with a queue can only be borrowed by the borrower it is held for |
 | Written-off items | Returning or editing an item to Destroy cancels its holds and notifies those borrowers |
 | Ready holds | Can be cancelled. If the item stops being available, the hold returns to the front of the queue and gets a new collection period when the item is available again |
-| Library codes | The desk, the hold form and the kiosk all accept a code typed in lower case or with spaces (`Data/ItemLookupExtensions.cs`) |
+| Library codes | The desk, the hold form and the kiosk all accept a code typed in lower case or with spaces before or after it (`Data/ItemLookupExtensions.cs`) |
 | Kiosk | Card look-ups and checkouts are rate limited |
 | Kiosk sign-out | After signing out, the welcome screen says so and offers **Back to Main Site**; that link never appears while a patron is signed in |
+| .NET 10 | Upgraded from .NET 8: `net10.0`, EF Core and Identity 10.0.13, `global.json` (SDK 10.0.100 or later). No code or migration changes were needed: `dotnet ef migrations has-pending-model-changes` reports none. EF Core 10 adds a `__EFMigrationsLock` table on first start and logs a warning that `AddBranchesAndTransfers` contains `PRAGMA foreign_keys = 0`, which SQLite cannot run inside a transaction. EF Core 8 ran the same step without the warning |
 | Kiosk PIN | Sign-in needs the card number and a 6-digit PIN set by Reception or Admin (`Services/KioskPinService.cs`, migration `AddKioskPin`). Unknown card and wrong PIN give the same message; 5 wrong PINs lock the card for 15 minutes; a PIN change ends the patron's kiosk sessions. Editing a borrower can no longer touch the PIN fields. Admin can open the Borrowers page for PINs only. Tests: `Tests/KioskPinTests.cs` |
 | Kiosk sessions | Sign-in now creates a server-side session (Post/Redirect/Get). Checkout takes the patron from the session, not from a hidden card-number field. Finish, the idle timer, the welcome screen and server-side expiry end the session. Sign-in forms work once, so Back, refresh, resubmission and replaying the old sign-in post cannot reopen an account. Kiosk pages are sent `no-store`, and the account page shows only the last two digits of the card. Tests: `Tests/KioskSessionTests.cs` |
 | REST API | Numeric or unknown `status` values return 400 |
@@ -329,8 +352,10 @@ Most tests use the EF Core InMemory provider. Tests for concurrency, unique inde
 
 ## Known limitations
 
-- The project targets .NET 8; the assignment requires .NET 10. The upgrade has not been done or tested.
-- Installation has not yet been tested on the designated virtual machine.
+- The .NET 10 upgrade was built and tested on macOS only (SDK 10.0.402, runtime 10.0.13, Chrome). It has not yet been tested on Windows, on the designated virtual machine, or in Edge or Firefox. See `docs/WINDOWS_VM_CHECKLIST.md`.
+- Staff sign-in does not lock an account after repeated wrong passwords (Assignment 2 behaviour).
+- A borrower's address is required, although the form does not mark it as required (Assignment 2 behaviour).
+- The tests use xUnit 2, which NuGet now lists as legacy in favour of xUnit v3. It still works on .NET 10.
 - **Kiosk PINs are short.** A 6-digit PIN with a 15-minute lockout after 5 wrong tries is a usability compromise: it stops casual guessing, not a determined attacker who can watch a patron type it. Anyone who knows a card number can also lock that card for 15 minutes by typing wrong PINs. If the database were copied, 6-digit PINs could be recovered from their hashes by trying every combination, so the database must be protected like any credential store.
 - Patrons cannot set or change their own PIN; staff set it at the desk.
 - Kiosk sessions are held in memory: they suit one server instance, and a restart signs every kiosk out.

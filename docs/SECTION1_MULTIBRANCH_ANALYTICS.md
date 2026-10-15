@@ -276,6 +276,8 @@ Also checked against the running application:
 
 ## 13. .NET 10
 
+> **Integration update (15 October 2026):** done on the integration branch. Both projects now target `net10.0`, with EF Core and Identity 10.0.13. No code or migration changes were needed, and `has-pending-model-changes` reports none. All tests pass on macOS (SDK 10.0.402). Windows and VM testing are still to do. The text below is the original plan.
+
 The assignment asks for .NET 10; the baseline targets .NET 8. This branch does **not** change the target, because it is a project-wide change that affects all three sections.
 
 What the upgrade needs:

@@ -54,3 +54,4 @@ Manual end-to-end checks on a real SQLite database: API authentication, filters,
 - **L5.** The rate limiter is per server process (in memory), which is fine for one instance.
 - **L6.** The repository contains committed `bin/`, `obj/` and `library.db` files, which cause noisy diffs. Worth adding a `.gitignore` as a team.
 - **L7.** The project targets `net8.0` while the brief's README mentions .NET 10; the team should agree which to state.
+  *Integration update (15 October 2026):* the project now targets `net10.0`.
