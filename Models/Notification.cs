@@ -19,4 +19,6 @@ public class Notification
 
 public enum NotificationChannel { Email, Sms }
 
-public enum NotificationType { Borrowed, DueSoon, FineIssued, ReservationReady, ReservationExpired, ReservationCancelled, ReservationDelayed }
+public enum NotificationType { Borrowed, DueSoon, FineIssued, ReservationReady, ReservationExpired, ReservationCancelled, ReservationDelayed,
+    // Added after the first release; new values go at the end because the type is stored as a number.
+    FineAccruing }

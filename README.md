@@ -264,7 +264,7 @@ Section 2 tests are in `Tests/KioskServiceTests.cs`, `Tests/KioskControllerTests
 
 ## Section 3: Reservations and notifications
 
-Author: Milan. Build log: [`docs/SECTION3_NOTES.md`](docs/SECTION3_NOTES.md). All pages below are for the **Reception** demo account.
+Author: Milan. Build log: [`docs/SECTION3_NOTES.md`](docs/SECTION3_NOTES.md). Overdue fine notices (**FineAccruing**) were added by Ashesh after the final merge, on top of Milan's due-date check. All pages below are for the **Reception** demo account.
 
 ### Notifications
 - **Where:** Notifications in the menu. It lists every simulated email or SMS, newest first, with a filter by type.
@@ -273,6 +273,7 @@ Author: Milan. Build log: [`docs/SECTION3_NOTES.md`](docs/SECTION3_NOTES.md). Al
   - **Borrowed:** after a successful borrow, at the desk or the kiosk.
   - **FineIssued:** when a return creates a late fine.
   - **DueSoon:** when staff click **Run due-date check** on the Notifications page. It reminds borrowers whose unreturned loans are due within 2 days, and does not send the same reminder twice.
+  - **FineAccruing:** sent by the same **Run due-date check** for every unreturned loan whose due date has passed. It tells the borrower how many days overdue the item is and the fine built up so far ($1.00 per overdue day, the same rule used when the item is returned). A loan gets its first notice the first time the check runs after the due date, then at most one more every 7 days (`DueDateReminderService.OverdueNoticeIntervalDays`) until it is returned, so pressing the button repeatedly does not repeat the message. Once the item is returned, the notices stop and the return sends **FineIssued** with the final amount.
   - **ReservationReady:** when an item becomes available and a borrower is first in its queue.
   - **ReservationExpired:** when a Ready hold is not collected in time.
   - **ReservationCancelled:** when an item with holds is written off (Destroy).
@@ -293,10 +294,10 @@ Author: Milan. Build log: [`docs/SECTION3_NOTES.md`](docs/SECTION3_NOTES.md). Al
 4. Open **Notifications** to see the **ReservationReady** message.
 5. Try borrowing that item for a different borrower. It is refused. Borrow it for the borrower with the hold, and the hold disappears from the list because it is now Fulfilled.
 
-The seed data has no loan due within 2 days, so the due-date reminder and hold expiry are demonstrated by automated tests. The buttons themselves can be clicked and report that nothing needed to be sent.
+The seed data has no loan due within 2 days, so the due-soon reminder and hold expiry are demonstrated by automated tests. The seed data does have two overdue loans (`M004` and `T005`), so clicking **Run due-date check** on a new database sends two **FineAccruing** notices; clicking it again reports that nothing new was needed.
 
 ### Tests
-Section 3 tests are in `Tests/NotificationAndQueueTests.cs`, `Tests/DueDateReminderServiceTests.cs` and `Tests/ReservationExpiryTests.cs`. Screenshots of the working features are in `docs/screenshots`.
+Section 3 tests are in `Tests/NotificationAndQueueTests.cs`, `Tests/DueDateReminderServiceTests.cs` and `Tests/ReservationExpiryTests.cs`; the overdue fine notices are tested in `Tests/OverdueFineNoticeTests.cs`. Screenshots of the working features are in `docs/screenshots`.
 
 ## Integration notes
 
@@ -363,7 +364,7 @@ Most tests use the EF Core InMemory provider. Tests for concurrency, unique inde
 - API keys live in configuration; there is no key management page. The rate limiters are in memory, which suits one server instance.
 - CSV import adds items only (no update) and accepts UTF-8 only.
 - Notifications are simulated: they are stored and written to the console, not sent.
-- Due-date reminders and hold expiry are started by staff buttons, not by a scheduled job.
+- Due-date reminders, overdue fine notices and hold expiry are started by staff buttons, not by a scheduled job. If nobody runs the due-date check, no overdue notice is sent.
 - PDF reports draw non-Latin text with fonts installed on the machine. A character no installed font contains appears as a placeholder box.
 - Transfers move one item at a time. An item returned at another branch stays there until a transfer is requested.
 - Fines record a paid/unpaid flag only; there are no payment dates or transactions.

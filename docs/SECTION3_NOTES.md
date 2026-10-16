@@ -32,3 +32,12 @@
 - Staff trigger: an "Expire old holds" button on the Reservations page, the same stand-in for a scheduled job as the due-date check.
 - Because a real hold cannot be aged by waiting 3 days in a demo, expiry is verified by four xUnit tests (Tests/ReservationExpiryTests.cs): an old Ready hold expires and the next borrower is notified, a recent Ready hold is kept, Waiting holds never expire, and an expired hold with no queue leaves the item Available.
 - Added Tests/NotificationAndQueueTests.cs: four tests for NotificationService (email chosen when an address exists, SMS fallback, skipped when there are no contact details, unknown borrower skipped) and four for the reservation queue (only the first Waiting hold becomes Ready, nothing happens while the item is still borrowed, a second hold is not made Ready while one is already Ready, and an item with no queue does nothing).
+
+## 2026-10-16 - Enhancement after the final merge (Ashesh)
+This entry was added by Ashesh on branch `feature/r3-overdue-fine-notifications`. Milan's entries above are unchanged; the notification system, the due-date check and its duplicate rule are his.
+- The brief asks for notifications when items are borrowed, nearing their due date or accruing fines. Fines were only announced when a late item came back (FineIssued), so nothing was sent while a fine was building up.
+- Added `DueDateReminderService.SendOverdueFineNoticesAsync`. The existing "Run due-date check" button now also sends a FineAccruing notification for each unreturned loan whose due date has passed, with the days overdue and the fine so far (days overdue x `LibraryRules.FinePerLateDay`, the same rule as a return). No background service was added; the button stays the stand-in for a scheduled job.
+- Frequency: the first notice is sent the first time the check runs after the due date, then at most once every 7 days per loan until it is returned. Each message starts with "Overdue notice for loan #N:", which is how earlier notices for the same loan are found, because the amount in the message changes.
+- FineAccruing was added at the end of the NotificationType enum, so stored values are unchanged and no migration was needed.
+- Checked on a new demo database: the first run of the due-date check sent two FineAccruing emails (M004, 6 days overdue, $6.00; T005, 2 days overdue, $2.00) and the second run sent none. Screenshot 18.
+- Tests: `Tests/OverdueFineNoticeTests.cs` (21 cases). The existing DueSoon, FineIssued and reservation notifications and their tests are unchanged.

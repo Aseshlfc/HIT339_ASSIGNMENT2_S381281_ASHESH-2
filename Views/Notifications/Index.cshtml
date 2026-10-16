@@ -6,7 +6,7 @@
 <div class="page-heading">
     <div><h1>Notifications</h1><p>History of simulated email and SMS messages sent to borrowers.</p></div>
     <form asp-action="RunDueDateCheck" method="post" class="inline-form">
-        <button class="btn" type="submit"><i class="bi bi-bell" aria-hidden="true"></i> Run due-date check</button>
+        <button class="btn" type="submit" title="Sends due-soon reminders and notices for overdue loans whose fines are building up"><i class="bi bi-bell" aria-hidden="true"></i> Run due-date check</button>
     </form>
 </div>
 <form method="get" class="search-panel">
@@ -37,7 +37,7 @@
                         @n.Channel
                     </td>
                     <td>
-                        <span class="status @(n.Type is NotificationType.FineIssued or NotificationType.ReservationExpired or NotificationType.ReservationCancelled or NotificationType.ReservationDelayed ? "status-damaged" : "status-available")">@n.Type</span>
+                        <span class="status @(n.Type is NotificationType.FineIssued or NotificationType.FineAccruing or NotificationType.ReservationExpired or NotificationType.ReservationCancelled or NotificationType.ReservationDelayed ? "status-damaged" : "status-available")">@n.Type</span>
                     </td>
                     <td>@n.Message</td>
                 </tr>

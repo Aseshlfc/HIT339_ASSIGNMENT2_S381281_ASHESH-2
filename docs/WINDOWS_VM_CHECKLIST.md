@@ -22,7 +22,7 @@ Follow the README section "Windows (including the designated VM)", using a new d
 |---|---|---|
 | 1.1 | `dotnet --list-sdks` shows a `10.0.x` SDK | |
 | 1.2 | `dotnet restore` and `dotnet build` finish with 0 errors | |
-| 1.3 | `dotnet test Tests\LibraryManagementSystem.Tests.csproj`: all tests pass (342 at the time of writing) | |
+| 1.3 | `dotnet test Tests\LibraryManagementSystem.Tests.csproj`: all tests pass (374 at the time of writing) | |
 | 1.4 | First `dotnet run` on a new database file starts without errors, and the console shows the migrations being applied | |
 | 1.5 | http://localhost:5190 opens the public catalogue | |
 | 1.6 | Optional: `dotnet ef migrations has-pending-model-changes` reports no changes | |
