@@ -37,14 +37,16 @@ public class NotificationsController : Controller
     }
 
     // Staff trigger for the due-date check (a stand-in for a scheduled background job).
+    // One run sends due-soon reminders and notices for overdue loans whose fines are building up.
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> RunDueDateCheck()
     {
-        var sent = await _reminders.SendDueSoonRemindersAsync();
-        TempData["Success"] = sent == 0
-            ? "Due-date check finished. No new reminders were needed."
-            : $"Due-date check finished. {sent} reminder(s) sent.";
+        var dueSoon = await _reminders.SendDueSoonRemindersAsync();
+        var overdue = await _reminders.SendOverdueFineNoticesAsync();
+        TempData["Success"] = dueSoon + overdue == 0
+            ? "Due-date check finished. No new reminders or overdue notices were needed."
+            : $"Due-date check finished. {dueSoon} due-soon reminder(s) and {overdue} overdue fine notice(s) sent.";
         return RedirectToAction(nameof(Index));
     }
 }
