@@ -2,7 +2,7 @@
 
 HIT339 group project. An ASP.NET Core MVC library management system, extended from a single-location Assignment 2 application into a multi-branch system with a self-service kiosk, a public REST API, bulk import, reservations and notifications.
 
-> **Status.** This README describes the combined application: the Assignment 2 baseline plus Section 1 (multi-branch inventory, transfers, manager analytics), Section 2 (kiosk, REST API, CSV import) and Section 3 (reservations, waitlist, notifications), with the integration fixes listed under [Integration notes](#integration-notes). The project targets **.NET 10** (`net10.0`); it was upgraded from .NET 8 during integration.
+> **Status.** This README describes the combined application: the Assignment 2 baseline plus Section 1 (multi-branch inventory, transfers, manager analytics), Section 2 (kiosk, REST API, CSV import) and Section 3 (reservations, waitlist, notifications), with the integration fixes listed under [Integration notes](#integration-notes). The project targets **.NET 10** (`net10.0`); it was upgraded from .NET 8 during integration. The repository is public: it can be cloned without a GitHub account or invitation.
 
 ## Contents
 
@@ -55,9 +55,9 @@ dotnet restore
 dotnet run
 ```
 
-Open the address printed in the terminal (the included launch profile uses **http://localhost:5190**). The database is migrated and seeded automatically on start-up.
+Open the address printed in the terminal (the included launch profile uses **http://localhost:5190**). On the first run the application creates `library.db`, applies all seven migrations and seeds the demo data (see [Database, migrations and seeding](#database-migrations-and-seeding)).
 
-### Windows (including the designated VM)
+### Windows (including a CDU Horizon virtual desktop)
 
 Run these in PowerShell.
 
@@ -69,8 +69,8 @@ Run these in PowerShell.
    dotnet restore
    dotnet build
    ```
-3. **Run the automated tests:** `dotnet test Tests\LibraryManagementSystem.Tests.csproj`. Every test should pass. The project path is required.
-4. **Choose a database (optional).** To test without touching `library.db`, point the app at a new file first: `$env:ConnectionStrings__DefaultConnection="Data Source=$PWD\vm-test.db"`. Migrations run automatically at start-up. To apply them by hand instead, see [Database, migrations and seeding](#database-migrations-and-seeding).
+3. **Run the automated tests:** `dotnet test Tests\LibraryManagementSystem.Tests.csproj`. Expected: 374 passed, 0 failed. The project path is required.
+4. **Choose a database (optional).** By default the app creates `library.db` in the project folder. To keep a separate database for a test, point the app at another file first: `$env:ConnectionStrings__DefaultConnection="Data Source=$PWD\vm-test.db"`. Migrations run automatically at start-up. To apply them by hand instead, see [Database, migrations and seeding](#database-migrations-and-seeding).
 5. **Start the site:** run `dotnet run` and open **http://localhost:5190**.
 
 If the build says the SDK in `global.json` was not found, the .NET 10 SDK is missing, or the window was opened before it was installed.
@@ -326,7 +326,15 @@ Changes made when the three sections were combined. Regression tests are in `Tes
 dotnet test Tests/LibraryManagementSystem.Tests.csproj
 ```
 
-The project path is required; running `dotnet test` alone from the root builds the application but runs no tests.
+The project path is required; running `dotnet test` alone from the root builds the application but runs no tests. The suite has 374 test cases in 20 test files, and all pass on `main`.
+
+| Where | Result |
+|---|---|
+| macOS (.NET SDK 10.0.402) | Build with 0 warnings; 374 passed, including a clean clone without `bin/`, `obj/` or `library.db` after PR #7 |
+| Windows 11 PCs (Milan: SDK 10.0.302; Susan: SDK 10.0.401) | 374 passed; the manual installation checks in `docs/WINDOWS_VM_CHECKLIST.md` passed in Edge and Firefox |
+| CDU Horizon Windows virtual desktop (SDK 10.0.302) | 374 passed; the site ran at http://localhost:5190 and a Fine Revenue Audit PDF was generated and opened |
+
+A test on the unit's designated virtual machine, if it differs from the CDU Horizon desktop, has not been recorded yet.
 
 Most tests use the EF Core InMemory provider. Tests for concurrency, unique indexes and decimal totals use a temporary SQLite file, because the InMemory provider does not reproduce that behaviour.
 
@@ -339,7 +347,7 @@ Most tests use the EF Core InMemory provider. Tests for concurrency, unique inde
 5. Place a hold on it for another borrower, then return it and show the hold become Ready.
 6. For a late-fine demonstration, return one of the seeded loans that is already overdue rather than modifying the database.
 7. Request, dispatch and receive a transfer between two branches.
-8. Open the **Kiosk**, enter a card number and borrow an item.
+8. As Reception, set a 6-digit kiosk PIN for a borrower on the **Borrowers** page. Open the **Kiosk**, sign in with that borrower's card number and PIN, and borrow an item.
 9. Log in as Manager and show the dashboard, the three reports and their CSV and PDF exports.
 10. Call the REST API with an API key.
 
@@ -353,7 +361,7 @@ Most tests use the EF Core InMemory provider. Tests for concurrency, unique inde
 
 ## Known limitations
 
-- The .NET 10 upgrade was built and tested on macOS only (SDK 10.0.402, runtime 10.0.13, Chrome). It has not yet been tested on Windows, on the designated virtual machine, or in Edge or Firefox. See `docs/WINDOWS_VM_CHECKLIST.md`.
+- Platform testing is summarised under [Testing](#testing). A test on the unit's designated virtual machine, if it differs from the CDU Horizon desktop, has not been recorded yet.
 - Staff sign-in does not lock an account after repeated wrong passwords (Assignment 2 behaviour).
 - A borrower's address is required, although the form does not mark it as required (Assignment 2 behaviour).
 - The tests use xUnit 2, which NuGet now lists as legacy in favour of xUnit v3. It still works on .NET 10.
@@ -385,4 +393,4 @@ Most tests use the EF Core InMemory provider. Tests for concurrency, unique inde
 | [`docs/SECTION3_NOTES.md`](docs/SECTION3_NOTES.md) | Section 3 build log |
 | [`PROGRAMMERS_LOG.md`](PROGRAMMERS_LOG.md) | Assignment 2 development log |
 
-The group's project-management documents (project plan, task allocation, repository management and installation guide) are kept on a separate documentation branch and are not part of this branch yet.
+The group's project-management documents (team contract, requirements, approach, billable hours, meeting minutes, installation manual and patron guide) are in the group portfolio, submitted as one PDF. Its traceability and hours workbook is `docs/HIT339_G16_Traceability_and_Hours.xlsx`.
