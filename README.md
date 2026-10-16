@@ -332,9 +332,7 @@ The project path is required; running `dotnet test` alone from the root builds t
 |---|---|
 | macOS (.NET SDK 10.0.402) | Build with 0 warnings; 374 passed, including a clean clone without `bin/`, `obj/` or `library.db` after PR #7 |
 | Windows 11 PCs (Milan: SDK 10.0.302; Susan: SDK 10.0.401) | 374 passed; the manual installation checks in `docs/WINDOWS_VM_CHECKLIST.md` passed in Edge and Firefox |
-| CDU Horizon Windows virtual desktop (SDK 10.0.302) | 374 passed; the site ran at http://localhost:5190 and a Fine Revenue Audit PDF was generated and opened |
-
-A test on the unit's designated virtual machine, if it differs from the CDU Horizon desktop, has not been recorded yet.
+| Virtual machine: CDU Horizon IT Desktop, a university-hosted Windows virtual desktop (SDK 10.0.302), commit `b695674` | 374 passed; the site ran at http://localhost:5190 and a Fine Revenue Audit PDF was generated and opened |
 
 Most tests use the EF Core InMemory provider. Tests for concurrency, unique indexes and decimal totals use a temporary SQLite file, because the InMemory provider does not reproduce that behaviour.
 
@@ -361,7 +359,6 @@ Most tests use the EF Core InMemory provider. Tests for concurrency, unique inde
 
 ## Known limitations
 
-- Platform testing is summarised under [Testing](#testing). A test on the unit's designated virtual machine, if it differs from the CDU Horizon desktop, has not been recorded yet.
 - Staff sign-in does not lock an account after repeated wrong passwords (Assignment 2 behaviour).
 - A borrower's address is required, although the form does not mark it as required (Assignment 2 behaviour).
 - The tests use xUnit 2, which NuGet now lists as legacy in favour of xUnit v3. It still works on .NET 10.
