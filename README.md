@@ -98,7 +98,7 @@ wwwroot/css/                     Stylesheets
 Tests/                           xUnit test project (LibraryManagementSystem.Tests.csproj)
 docs/                            Section documentation, screenshots and sample import files
 PROGRAMMERS_LOG.md               Development log from Assignment 2
-library.db                       SQLite database (Assignment 2 data; upgraded on first run)
+.gitignore                       Keeps build output (bin/, obj/) and local databases out of Git
 ```
 
 ## Configuration
@@ -151,7 +151,7 @@ The library card number is not stored: it is derived from the borrower Id (for e
 
 **Seeding.** On start-up the application creates anything missing: the three roles, one demo account per role, two demo branches beside the default Central Library, and — only when the tables are empty — 20 items, 5 borrowers and 6 loans.
 
-**Existing data.** The `library.db` in the repository is the Assignment 2 database. On first run it is upgraded in place: all records are kept and every item is assigned to Central Library. Delete `library.db` before the first run to start from an empty database with the demo catalogue spread across three branches.
+**Existing data.** The database is not stored in Git. On the first run of a fresh clone the application creates `library.db`, applies every migration and seeds the demo catalogue across three branches. To upgrade the Assignment 2 database instead, restore it from the baseline commit before the first run with `git restore --source=a855441 -- library.db`; it is then upgraded in place, all records are kept and every item is assigned to Central Library.
 
 When adding a migration, merge the latest `main` first. See the [GitHub workflow](#github-workflow).
 
@@ -348,7 +348,7 @@ Most tests use the EF Core InMemory provider. Tests for concurrency, unique inde
 - `main` holds integrated, working code and changes only through pull requests.
 - Work is done on `feature/<description>` or `fix/<description>` branches created from the latest `main`.
 - Before a pull request: merge `origin/main` into the branch, build, and run the full test suite.
-- Do not commit `bin/`, `obj/` or `library.db`. They are tracked from the original commit and show as modified after every build; stage named source paths instead of `git add .`.
+- `bin/`, `obj/` and local SQLite databases are listed in `.gitignore` and are not tracked. Never commit a database file: it can hold patron details and PIN hashes.
 - Migrations: merge `main` before creating one. If another migration reaches `main` first, remove yours, merge, and create it again.
 
 ## Known limitations
@@ -371,7 +371,6 @@ Most tests use the EF Core InMemory provider. Tests for concurrency, unique inde
 - An Admin can still set an item's status by hand (baseline behaviour). The Inventory health report flags any item whose status disagrees with its loan record.
 - Reports aggregate in memory, which suits a library of this size.
 - An unknown record ID returns a plain 404 response.
-- `bin/`, `obj/` and `library.db` are tracked in Git.
 
 ## Further documentation
 
