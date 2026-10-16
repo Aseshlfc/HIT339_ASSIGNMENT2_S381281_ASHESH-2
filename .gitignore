@@ -1,0 +1,14 @@
+# Build output
+bin/
+obj/
+
+# Local SQLite databases (created on first run; never commit patron data)
+*.db
+*.db-shm
+*.db-wal
+
+# Test results and IDE files
+TestResults/
+.vs/
+*.user
+.DS_Store
